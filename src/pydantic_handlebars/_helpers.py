@@ -227,28 +227,40 @@ def _helper_gt(*args: Any, options: HelperOptions) -> bool:
     """Greater than comparison."""
     if len(args) < 2:
         return False
-    return args[0] > args[1]
+    try:
+        return args[0] > args[1]
+    except TypeError:
+        return False
 
 
 def _helper_gte(*args: Any, options: HelperOptions) -> bool:
     """Greater than or equal comparison."""
     if len(args) < 2:
         return False
-    return args[0] >= args[1]
+    try:
+        return args[0] >= args[1]
+    except TypeError:
+        return False
 
 
 def _helper_lt(*args: Any, options: HelperOptions) -> bool:
     """Less than comparison."""
     if len(args) < 2:
         return False
-    return args[0] < args[1]
+    try:
+        return args[0] < args[1]
+    except TypeError:
+        return False
 
 
 def _helper_lte(*args: Any, options: HelperOptions) -> bool:
     """Less than or equal comparison."""
     if len(args) < 2:
         return False
-    return args[0] <= args[1]
+    try:
+        return args[0] <= args[1]
+    except TypeError:
+        return False
 
 
 def _helper_and(*args: Any, options: HelperOptions) -> Any:

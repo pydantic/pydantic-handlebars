@@ -264,6 +264,22 @@ class TestComparisonHelpersInsufficientArgs:
         result = _extra_env.render('{{#if (lte a)}}yes{{else}}no{{/if}}', {'a': 5})
         assert result == 'no'
 
+    def test_gt_incomparable_types(self):
+        result = _extra_env.render('{{#if (gt a b)}}yes{{else}}no{{/if}}', {'a': 'hello', 'b': 5})
+        assert result == 'no'
+
+    def test_gte_incomparable_types(self):
+        result = _extra_env.render('{{#if (gte a b)}}yes{{else}}no{{/if}}', {'a': 'hello', 'b': 5})
+        assert result == 'no'
+
+    def test_lt_incomparable_types(self):
+        result = _extra_env.render('{{#if (lt a b)}}yes{{else}}no{{/if}}', {'a': 'hello', 'b': 5})
+        assert result == 'no'
+
+    def test_lte_incomparable_types(self):
+        result = _extra_env.render('{{#if (lte a b)}}yes{{else}}no{{/if}}', {'a': 'hello', 'b': 5})
+        assert result == 'no'
+
 
 # --- Boolean helpers with no args: lines 257, 267, 277 ---
 
