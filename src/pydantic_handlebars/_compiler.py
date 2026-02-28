@@ -335,7 +335,8 @@ class Compiler:
         if is_falsy(value):
             # Render inverse
             if stmt.inverse is not None:
-                return self._render_program(stmt.inverse, scope)
+                result = self._render_program(stmt.inverse, scope)
+                return _apply_inverse_strip(stmt, result)
             return ''
 
         if isinstance(value, list):
@@ -345,20 +346,24 @@ class Compiler:
         if isinstance(value, dict):
             # Change context
             child = scope.child(value)
-            return self._render_program(stmt.body, child)
+            result = self._render_program(stmt.body, child)
+            return _apply_body_strip(stmt, result)
 
         if value is True:
-            return self._render_program(stmt.body, scope)
+            result = self._render_program(stmt.body, scope)
+            return _apply_body_strip(stmt, result)
 
         # Use value as context
         child = scope.child(value)
-        return self._render_program(stmt.body, child)
+        result = self._render_program(stmt.body, child)
+        return _apply_body_strip(stmt, result)
 
     def _render_each_inline(self, items: list[Any], stmt: BlockStatement, scope: Scope) -> str:
         """Render a list using inline block iteration."""
         if not items:
             if stmt.inverse is not None:
-                return self._render_program(stmt.inverse, scope)
+                result = self._render_program(stmt.inverse, scope)
+                return _apply_inverse_strip(stmt, result)
             return ''
 
         parts: list[str] = []
@@ -375,7 +380,7 @@ class Compiler:
                     bp[stmt.block_params[1]] = i
             child = scope.child(item, data=data, block_params=bp)
             parts.append(self._render_program(stmt.body, child))
-        return ''.join(parts)
+        return _apply_body_strip(stmt, ''.join(parts))
 
     def _call_block_helper(self, name: str, stmt: BlockStatement, scope: Scope) -> str:
         """Call a registered block helper."""
@@ -397,12 +402,7 @@ class Compiler:
                         bp[bp_name] = block_params[j]
             child = scope.child(ctx, data=extra_data, block_params=bp)
             result = compiler._render_program(stmt.body, child)
-            # Apply inner whitespace control from open/close tags
-            if stmt.open_strip.close_standalone:
-                result = _lstrip_whitespace(result)
-            if stmt.close_strip.open_standalone:
-                result = _rstrip_whitespace(result)
-            return result
+            return _apply_body_strip(stmt, result)
 
         def inverse(
             context: Any = None, *, data: dict[str, Any] | None = None, block_params: list[Any] | None = None
@@ -419,10 +419,12 @@ class Compiler:
 
             # Handle chained blocks (else if)
             if stmt.inverse.body and isinstance(stmt.inverse.body[0], BlockStatement) and stmt.inverse.body[0].chained:
-                return compiler._render_block(stmt.inverse.body[0], scope)
+                result = compiler._render_block(stmt.inverse.body[0], scope)
+                return _apply_inverse_strip(stmt, result)
 
             child = scope.child(ctx, data=extra_data, block_params=bp)
-            return compiler._render_program(stmt.inverse, child)
+            result = compiler._render_program(stmt.inverse, child)
+            return _apply_inverse_strip(stmt, result)
 
         options = HelperOptions(
             fn=fn,
@@ -566,3 +568,33 @@ def _rstrip_whitespace(s: str) -> str:
 def _lstrip_whitespace(s: str) -> str:
     """Strip leading whitespace including the following newline."""
     return s.lstrip(' \t\r\n')
+
+
+def _apply_body_strip(stmt: BlockStatement, result: str) -> str:
+    """Apply inner whitespace control to rendered body content.
+
+    The body is bounded by the open tag on the left and either the inverse tag
+    (if present) or the close tag on the right.
+    """
+    if stmt.open_strip.close_standalone:
+        result = _lstrip_whitespace(result)
+    if stmt.inverse is not None:
+        if stmt.inverse_strip.open_standalone:
+            result = _rstrip_whitespace(result)
+    else:
+        if stmt.close_strip.open_standalone:
+            result = _rstrip_whitespace(result)
+    return result
+
+
+def _apply_inverse_strip(stmt: BlockStatement, result: str) -> str:
+    """Apply inner whitespace control to rendered inverse content.
+
+    The inverse is bounded by the inverse tag on the left and the close tag
+    on the right.
+    """
+    if stmt.inverse_strip.close_standalone:
+        result = _lstrip_whitespace(result)
+    if stmt.close_strip.open_standalone:
+        result = _rstrip_whitespace(result)
+    return result
