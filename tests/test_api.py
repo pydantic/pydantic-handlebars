@@ -145,12 +145,9 @@ def test_parse_error_on_partial():
 
 
 def test_parse_error_message_includes_location():
-    try:
+    with pytest.raises(HandlebarsParseError) as exc_info:
         render('{{#if}}', {})
-    except HandlebarsParseError as e:
-        assert 'line' in str(e).lower() or 'column' in str(e).lower() or True  # Just checking it's informative
-    else:
-        pass  # Some parse errors might not have location
+    assert 'line' in str(exc_info.value).lower() or 'column' in str(exc_info.value).lower() or True
 
 
 def test_runtime_error_depth_limit():

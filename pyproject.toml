@@ -84,7 +84,8 @@ filterwarnings = ['error']
 
 [tool.coverage.run]
 branch = true
-source = ['pydantic_handlebars']
+source = ['pydantic_handlebars', 'tests']
+omit = ['tests/test_fuzz.py']  # coverage depends on running enough cases, not worth it
 
 [tool.coverage.report]
 fail_under = 100

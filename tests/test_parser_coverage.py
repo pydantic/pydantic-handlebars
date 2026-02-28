@@ -398,10 +398,7 @@ def test_render_inverse_block_helper():
 
     def my_helper(context, *args, options):
         value = args[0] if args else True
-        if value:
-            return options.fn()
-        else:
-            return options.inverse()
+        return options.fn() if value else options.inverse()
 
     env.register_helper('myHelper', my_helper)
     result = env.render('{{^myHelper false}}shown when false{{/myHelper}}', {})

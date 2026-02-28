@@ -18,7 +18,7 @@ def set_eval_config(eval_example: EvalExample) -> None:
 @pytest.mark.parametrize('example', find_examples('docs/', 'README.md'), ids=str)
 def test_docs_lint(example: CodeExample, eval_example: EvalExample) -> None:
     set_eval_config(eval_example)
-    if eval_example.update_examples:
+    if eval_example.update_examples:  # pragma: no cover
         eval_example.format(example)
     else:
         eval_example.lint_ruff(example)
@@ -27,7 +27,7 @@ def test_docs_lint(example: CodeExample, eval_example: EvalExample) -> None:
 @pytest.mark.parametrize('example', find_examples('docs/', 'README.md'), ids=str)
 def test_docs_run(example: CodeExample, eval_example: EvalExample) -> None:
     set_eval_config(eval_example)
-    if eval_example.update_examples:
+    if eval_example.update_examples:  # pragma: no cover
         eval_example.run_print_update(example)
     else:
         eval_example.run_print_check(example)
