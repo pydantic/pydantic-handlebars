@@ -35,8 +35,11 @@ jobs:
       - run: uv pip uninstall pydantic pydantic-core
       - run: uv run pytest
 
-      # 2. Test with min pydantic
-      - run: uv pip install 'pydantic>=2.0,<2.1'
+      # 2. Test with min pydantic (3.13+ needs pydantic 2.8+ for pydantic-core compatibility)
+      - if: matrix.python-version < '3.13'
+        run: uv pip install 'pydantic>=2.0,<2.1'
+      - if: matrix.python-version >= '3.13'
+        run: uv pip install 'pydantic>=2.8,<2.9'
       - run: uv run pytest
 
       # 3. Test with latest pydantic + coverage
