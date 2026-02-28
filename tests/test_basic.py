@@ -238,5 +238,13 @@ def test_numeric_index_nested():
     assert render('{{data.items.0.name}}', {'data': {'items': [{'name': 'Alice'}, {'name': 'Bob'}]}}) == 'Alice'
 
 
+def test_numeric_index_this_dot():
+    assert render('{{#each items}}{{this.0}}{{/each}}', {'items': [['x', 'y']]}) == 'x'
+
+
+def test_numeric_index_dot_slash():
+    assert render('{{#each items}}{{./0}}{{/each}}', {'items': [['x', 'y']]}) == 'x'
+
+
 def test_numeric_index_out_of_bounds():
     assert render('{{items.5}}', {'items': ['a', 'b', 'c']}) == ''

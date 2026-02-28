@@ -630,7 +630,7 @@ class _Parser:
             if self._current().type == TokenType.SEP:
                 original_parts.append(self._advance().value)
                 # Read the segment after the separator
-                if self._current().type == TokenType.ID:  # pragma: no branch
+                if self._current().type in (TokenType.ID, TokenType.NUMBER):  # pragma: no branch
                     token = self._advance()
                     parts.append(token.value)
                     original_parts.append(token.value)
