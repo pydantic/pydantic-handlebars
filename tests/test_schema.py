@@ -382,7 +382,9 @@ def test_default_helper_downgrades_severity():
     assert not result.is_compatible
 
     # With default — severity should be downgraded to INFO
-    result = check_template_compatibility('{{default nickname "N/A"}}', schema, optional_field_severity='error')
+    result = check_template_compatibility(
+        '{{default nickname "N/A"}}', schema, optional_field_severity='error', helpers={'default'}
+    )
     assert result.is_compatible
     assert len(result.issues) == 1
     assert result.issues[0].severity == 'ignore'
@@ -516,13 +518,13 @@ def test_this_bare():
 
 def test_subexpression_params_validated():
     schema = {'type': 'object', 'properties': {'val': {'type': 'string'}}, 'required': ['val']}
-    result = check_template_compatibility('{{uppercase (trim val)}}', schema)
+    result = check_template_compatibility('{{uppercase (trim val)}}', schema, helpers={'uppercase', 'trim'})
     assert result.is_compatible
 
 
 def test_subexpression_invalid_param():
     schema = {'type': 'object', 'properties': {'val': {'type': 'string'}}, 'required': ['val']}
-    result = check_template_compatibility('{{uppercase (trim missing)}}', schema)
+    result = check_template_compatibility('{{uppercase (trim missing)}}', schema, helpers={'uppercase', 'trim'})
     assert not result.is_compatible
 
 
@@ -689,7 +691,8 @@ def test_builtin_helpers():
         'properties': {'items': {'type': 'array', 'items': {'type': 'string'}}},
         'required': ['items'],
     }
-    result = check_template_compatibility('{{json items}}', schema)
+    # Standard helpers (if, each, with, etc.) are always known
+    result = check_template_compatibility('{{log items}}', schema)
     assert result.is_compatible
 
 
@@ -1311,7 +1314,7 @@ def test_union_variant_additional_properties_dict():
 
 def test_default_helper_no_params():
     schema = {'type': 'object', 'properties': {'name': {'type': 'string'}}, 'required': ['name']}
-    result = check_template_compatibility('{{default}}', schema)
+    result = check_template_compatibility('{{default}}', schema, helpers={'default'})
     assert result.is_compatible
 
 
@@ -1323,7 +1326,9 @@ def test_default_helper_data_param():
         },
         'required': ['items'],
     }
-    result = check_template_compatibility('{{#each items}}{{default @root.fallback "N/A"}}{{/each}}', schema)
+    result = check_template_compatibility(
+        '{{#each items}}{{default @root.fallback "N/A"}}{{/each}}', schema, helpers={'default'}
+    )
     # default helper downgrades severity to 'ignore', so is_compatible is True
     assert result.is_compatible
     assert len(result.issues) == 1
@@ -1332,7 +1337,7 @@ def test_default_helper_data_param():
 
 def test_default_helper_subexpression_param():
     schema = {'type': 'object', 'properties': {'val': {'type': 'string'}}, 'required': ['val']}
-    result = check_template_compatibility('{{default (lookup val "key") "N/A"}}', schema)
+    result = check_template_compatibility('{{default (lookup val "key") "N/A"}}', schema, helpers={'default'})
     assert result.is_compatible
 
 
@@ -1494,3 +1499,56 @@ def test_properties_restricts_to_declared_fields():
     result = check_template_compatibility('{{b}}', schema)
     assert not result.is_compatible
     assert result.issues[0].field_path == 'b'
+
+
+# --- Extra helpers not known by default ---
+
+
+def test_extra_helper_not_known_by_default():
+    """Extra helpers (json, eq, default, etc.) should NOT be treated as known
+    helpers unless explicitly passed via the helpers parameter.
+
+    Regression test: the schema checker previously used get_default_helpers()
+    which included all 22 helpers, but the default environment only registers
+    the 6 standard helpers.
+    """
+    schema = {
+        'type': 'object',
+        'properties': {'name': {'type': 'string'}},
+        'required': ['name'],
+    }
+    # 'json' is an extra helper — not known by default
+    result = check_template_compatibility('{{json name}}', schema)
+    # Without helpers={'json'}, 'json' is treated as a field lookup, not a helper.
+    # Since 'json' is not in the schema, this should fail.
+    assert not result.is_compatible
+
+    # Explicitly passing it makes it known
+    result = check_template_compatibility('{{json name}}', schema, helpers={'json'})
+    assert result.is_compatible
+
+
+def test_extra_helpers_known_when_passed_explicitly():
+    """Extra helpers work correctly when passed via the helpers parameter."""
+    schema = {
+        'type': 'object',
+        'properties': {'val': {'type': 'string'}},
+        'required': ['val'],
+    }
+    for helper_name in ('json', 'uppercase', 'lowercase', 'trim', 'eq', 'default'):
+        result = check_template_compatibility(f'{{{{{helper_name} val}}}}', schema, helpers={helper_name})
+        assert result.is_compatible, f'{helper_name} should be recognized when passed explicitly'
+
+
+def test_standard_helpers_always_known():
+    """Standard helpers (if, each, with, unless, lookup, log) are always known."""
+    schema = {
+        'type': 'object',
+        'properties': {'items': {'type': 'array', 'items': {'type': 'string'}}},
+        'required': ['items'],
+    }
+    # lookup and log are standard helpers — always known without passing helpers=
+    result = check_template_compatibility('{{lookup items 0}}', schema)
+    assert result.is_compatible
+    result = check_template_compatibility('{{log items}}', schema)
+    assert result.is_compatible

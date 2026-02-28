@@ -197,6 +197,32 @@ class TestMaxOutputSize:
         result = compiler.render(program, {'items': list(range(5))})
         assert result == 'AAAAA'
 
+    def test_max_output_size_no_double_counting_nested_blocks(self) -> None:
+        """Output size should not be double-counted for nested block rendering.
+
+        Regression test: _render_program previously incremented _output_size in
+        both inner and outer calls, effectively counting the same bytes twice.
+        This caused the limit to trigger at roughly half the configured value.
+        """
+        # 10 items * 2 chars each = 20 bytes of actual output.
+        # With a 25-byte limit, this should succeed. With double-counting
+        # it would track ~40 bytes and fail.
+        program = parse('{{#items}}AB{{/items}}')
+        compiler = Compiler(max_output_size=25)
+        result = compiler.render(program, {'items': list(range(10))})
+        assert result == 'AB' * 10
+        assert len(result) == 20
+
+    def test_max_output_size_no_double_counting_with_surrounding_content(self) -> None:
+        """Nested blocks with surrounding content should track size accurately."""
+        # "Hello " (6) + 5 items * "X" (5) + " World" (6) = 17 bytes total.
+        # With a 20-byte limit this should succeed.
+        program = parse('Hello {{#items}}X{{/items}} World')
+        compiler = Compiler(max_output_size=20)
+        result = compiler.render(program, {'items': list(range(5))})
+        assert result == 'Hello XXXXX World'
+        assert len(result) == 17
+
 
 class TestDepthRecovery:
     """Depth counter must be properly decremented after max-depth error."""

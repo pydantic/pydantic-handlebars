@@ -17,7 +17,7 @@ from pydantic_handlebars._ast_nodes import (
     SubExpression,
 )
 from pydantic_handlebars._exceptions import TemplateSchemaError
-from pydantic_handlebars._helpers import get_default_helpers
+from pydantic_handlebars._helpers import get_standard_helpers
 from pydantic_handlebars._parser import parse
 
 _JsonSchema = dict[str, Any]
@@ -110,7 +110,7 @@ class _SchemaChecker:
             **root_schema.get('$defs', {}),
             **root_schema.get('definitions', {}),
         }
-        default_helper_names = set(get_default_helpers().keys())
+        default_helper_names = set(get_standard_helpers().keys())
         self._known_helpers = default_helper_names | helpers
         self._issues: list[TemplateIssue] = []
         self._template_index = 0

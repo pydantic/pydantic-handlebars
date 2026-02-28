@@ -440,7 +440,9 @@ schema = {
 }
 
 # 'nickname' is not in the schema, but default provides a fallback
-result = check_template_compatibility('{{default nickname "Anonymous"}}', schema)
+result = check_template_compatibility(
+    '{{default nickname "Anonymous"}}', schema, helpers={'default'}
+)
 print(result.is_compatible)
 #> True
 ```

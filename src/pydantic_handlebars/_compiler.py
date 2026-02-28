@@ -210,8 +210,11 @@ class Compiler:
                 raise HandlebarsRuntimeError(f'Maximum nesting depth of {self._max_depth} exceeded')
             parts: list[str] = []
             for stmt in program.body:
+                size_before = self._output_size
                 rendered = self._render_statement(stmt, scope)
-                self._output_size += len(rendered)
+                # Use size_before + len(rendered) instead of incrementing, to avoid
+                # double-counting bytes already tracked by nested _render_program calls.
+                self._output_size = size_before + len(rendered)
                 if self._output_size > self._max_output_size:
                     raise HandlebarsRuntimeError(f'Output size exceeds maximum of {self._max_output_size} bytes')
                 parts.append(rendered)
