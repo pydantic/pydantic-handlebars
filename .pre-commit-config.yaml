@@ -1,0 +1,33 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: no-commit-to-branch # prevent direct commits to main branch
+      - id: check-yaml
+      - id: check-toml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+
+  - repo: local
+    hooks:
+      - id: lint
+        name: Ruff Lint
+        entry: make
+        args: [lint]
+        types: [python]
+        language: system
+        pass_filenames: false
+      - id: format
+        name: Ruff Format
+        entry: make
+        args: [format]
+        types: [python]
+        language: system
+        pass_filenames: false
+      - id: typecheck
+        name: Pyright
+        entry: make
+        args: [typecheck]
+        types: [python]
+        language: system
+        pass_filenames: false

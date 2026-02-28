@@ -19,10 +19,10 @@ from pydantic_handlebars import render
 
 # These all render as empty string
 print(render('{{obj.__class__}}', {'obj': object()}))
-#> 
+#>
 #>
 print(render('{{obj.__dict__}}', {'obj': object()}))
-#> 
+#>
 #>
 ```
 

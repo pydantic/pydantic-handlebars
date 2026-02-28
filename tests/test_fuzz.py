@@ -11,12 +11,12 @@ from __future__ import annotations
 
 import os
 
-from hypothesis import HealthCheck, given, settings, strategies as st
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
 
 from pydantic_handlebars import (
     HandlebarsError,
     HandlebarsParseError,
-    HandlebarsRuntimeError,
     SafeString,
     render,
 )
@@ -88,6 +88,7 @@ _context = st.dictionaries(
 # Strategy: structured Handlebars templates (more likely to parse)
 # ---------------------------------------------------------------------------
 
+
 def _simple_mustache(ident: str) -> str:
     return '{{' + ident + '}}'
 
@@ -143,6 +144,7 @@ _well_formed_template = st.recursive(
 # 1. Core safety: render() must never raise unexpected exceptions
 # ===========================================================================
 
+
 @given(template=_arbitrary_text, ctx=_context)
 @_base
 def test_render_arbitrary_strings_no_unexpected_exceptions(template: str, ctx: dict[str, object]) -> None:
@@ -177,6 +179,7 @@ def test_render_well_formed_templates_no_unexpected_exceptions(template: str, ct
 # 2. Tokenizer safety
 # ===========================================================================
 
+
 @given(source=_arbitrary_text)
 @_base
 def test_tokenizer_no_unexpected_exceptions(source: str) -> None:
@@ -203,6 +206,7 @@ def test_tokenizer_handlebars_text_no_unexpected_exceptions(source: str) -> None
 # 3. Parser safety
 # ===========================================================================
 
+
 @given(source=_arbitrary_text)
 @_base
 def test_parser_no_unexpected_exceptions(source: str) -> None:
@@ -227,11 +231,14 @@ def test_parser_handlebars_text_no_unexpected_exceptions(source: str) -> None:
 # 4. Property: plain text without {{ renders as itself
 # ===========================================================================
 
-@given(text=st.text(
-    alphabet=st.characters(blacklist_characters='{}\\\n\r'),
-    min_size=0,
-    max_size=200,
-))
+
+@given(
+    text=st.text(
+        alphabet=st.characters(blacklist_characters='{}\\\n\r'),
+        min_size=0,
+        max_size=200,
+    )
+)
 @_base
 def test_plain_text_renders_as_itself(text: str) -> None:
     """Text with no handlebars delimiters should render unchanged."""
@@ -241,6 +248,7 @@ def test_plain_text_renders_as_itself(text: str) -> None:
 # ===========================================================================
 # 5. Property: render and compile().render() agree
 # ===========================================================================
+
 
 @given(template=_well_formed_template, ctx=_context)
 @_heavy
@@ -265,6 +273,7 @@ def test_render_matches_compiled_render(template: str, ctx: dict[str, object]) -
 # ===========================================================================
 # 6. Security: dunder attributes are never accessible
 # ===========================================================================
+
 
 @given(
     attr=st.sampled_from(sorted(BLOCKED_ATTRIBUTES)),
@@ -299,13 +308,15 @@ def test_arbitrary_dunder_paths_blocked(prefix: str, dunder: str) -> None:
 # 7. Security: HTML escaping is always applied in {{ }} context
 # ===========================================================================
 
-_html_payloads = st.sampled_from([
-    '<script>alert(1)</script>',
-    '<img onerror=alert(1)>',
-    '"><script>x</script>',
-    "'-alert(1)-'",
-    '<svg onload=alert(1)>',
-])
+_html_payloads = st.sampled_from(
+    [
+        '<script>alert(1)</script>',
+        '<img onerror=alert(1)>',
+        '"><script>x</script>',
+        "'-alert(1)-'",
+        '<svg onload=alert(1)>',
+    ]
+)
 
 
 @given(payload=_html_payloads)
@@ -340,6 +351,7 @@ def test_triple_mustache_preserves_raw_content(value: str) -> None:
 # 8. Resource limits: deeply nested templates terminate
 # ===========================================================================
 
+
 @given(depth=st.integers(min_value=50, max_value=200))
 @_light
 def test_deep_nesting_terminates(depth: int) -> None:
@@ -366,6 +378,7 @@ def test_large_repeated_output_terminates(count: int) -> None:
 # ===========================================================================
 # 9. Each/with block helpers: random iteration
 # ===========================================================================
+
 
 @given(items=st.lists(st.text(min_size=0, max_size=20), max_size=20))
 @_base
@@ -401,6 +414,7 @@ def test_with_random_context(ctx: dict[str, object]) -> None:
 # 10. Escaped mustache syntax
 # ===========================================================================
 
+
 @given(ident=_identifier)
 @_base
 def test_escaped_mustaches_render_literally(ident: str) -> None:
@@ -414,11 +428,14 @@ def test_escaped_mustaches_render_literally(ident: str) -> None:
 # 11. Comment stripping
 # ===========================================================================
 
-@given(comment_text=st.text(
-    alphabet=st.characters(blacklist_characters='{}'),
-    min_size=0,
-    max_size=50,
-))
+
+@given(
+    comment_text=st.text(
+        alphabet=st.characters(blacklist_characters='{}'),
+        min_size=0,
+        max_size=50,
+    )
+)
 @_base
 def test_comments_never_appear_in_output(comment_text: str) -> None:
     """{{! comment }} content should be fully stripped from output."""
@@ -432,6 +449,7 @@ def test_comments_never_appear_in_output(comment_text: str) -> None:
 # 12. SafeString bypass
 # ===========================================================================
 
+
 @given(html=st.text(min_size=1, max_size=100))
 @_base
 def test_safestring_not_double_escaped(html: str) -> None:
@@ -444,6 +462,7 @@ def test_safestring_not_double_escaped(html: str) -> None:
 # ===========================================================================
 # 13. Numeric and boolean rendering
 # ===========================================================================
+
 
 @given(n=st.integers(min_value=-1_000_000, max_value=1_000_000))
 @_base
@@ -475,9 +494,12 @@ def test_none_rendering() -> None:
 # 14. Stress: many variables in one template
 # ===========================================================================
 
-@given(data=st.fixed_dictionaries({}, optional={
-    chr(c): st.text(min_size=1, max_size=10) for c in range(ord('a'), ord('z') + 1)
-}))
+
+@given(
+    data=st.fixed_dictionaries(
+        {}, optional={chr(c): st.text(min_size=1, max_size=10) for c in range(ord('a'), ord('z') + 1)}
+    )
+)
 @_heavy
 def test_many_variables(data: dict[str, str]) -> None:
     """Templates with many variable references should work correctly."""
@@ -490,6 +512,7 @@ def test_many_variables(data: dict[str, str]) -> None:
 # ===========================================================================
 # 15. Compiler directly with constrained limits
 # ===========================================================================
+
 
 @given(template=_well_formed_template, ctx=_context)
 @_heavy
@@ -510,6 +533,7 @@ def test_compiler_with_tight_limits(template: str, ctx: dict[str, object]) -> No
 # ===========================================================================
 # 16. Pathological input patterns
 # ===========================================================================
+
 
 @given(n=st.integers(min_value=1, max_value=500))
 @_light
@@ -573,21 +597,28 @@ def test_many_parent_refs(n: int) -> None:
 # 17. Context with unusual types
 # ===========================================================================
 
+
 @given(data=st.data())
 @_heavy
 def test_unusual_context_values(data: st.DataObject) -> None:
     """render() should handle unusual Python types in context without crashing."""
-    unusual_value = data.draw(st.one_of(
-        st.just(object()),
-        st.just(frozenset()),
-        st.just(b'bytes'),
-        st.just(set()),
-        st.just(()),
-        st.just(range(10)),
-        st.just(type),
-        st.just(lambda: None),
-        st.builds(complex, st.floats(allow_nan=False, allow_infinity=False), st.floats(allow_nan=False, allow_infinity=False)),
-    ))
+    unusual_value = data.draw(
+        st.one_of(
+            st.just(object()),
+            st.just(frozenset({0})),
+            st.just(b'bytes'),
+            st.just({0}),
+            st.just(()),
+            st.just(range(10)),
+            st.just(type),
+            st.just(lambda: None),
+            st.builds(
+                complex,
+                st.floats(allow_nan=False, allow_infinity=False),
+                st.floats(allow_nan=False, allow_infinity=False),
+            ),
+        )
+    )
     try:
         render('{{val}}', {'val': unusual_value})
     except HandlebarsError:
@@ -597,6 +628,7 @@ def test_unusual_context_values(data: st.DataObject) -> None:
 # ===========================================================================
 # 18. Context keys that look like attacks
 # ===========================================================================
+
 
 @given(
     key=st.one_of(
@@ -620,6 +652,7 @@ def test_suspicious_context_keys(key: str) -> None:
 # ===========================================================================
 # 19. Whitespace control fuzz
 # ===========================================================================
+
 
 @given(
     content_before=_plain_content,
@@ -645,6 +678,7 @@ def test_whitespace_control_does_not_crash(
 # ===========================================================================
 # 20. Hash arguments fuzz
 # ===========================================================================
+
 
 @given(
     helper_name=_identifier,
