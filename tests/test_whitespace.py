@@ -103,18 +103,16 @@ def test_else_strip_both():
     assert render('{{#if show}} body {{~else~}} other {{/if}}', {'show': False}) == 'other '
 
 
-def test_caret_strip():
-    """{{~^}} / {{^~}} strip trailing whitespace from body.
-
-    Note: {{~^}} and {{^~}} produce identical token streams because ^ has no
-    content between open/close markers. Both are treated as open_standalone=True
-    (body rstrip). Use {{~^~}} for both-side stripping.
-    """
+def test_caret_strip_open():
+    """{{~^}} strips trailing whitespace from body."""
     assert render('{{#if show}} body {{~^}} other {{/if}}', {'show': True}) == ' body'
     assert render('{{#if show}} body {{~^}} other {{/if}}', {'show': False}) == ' other '
-    # {{^~}} behaves identically due to tokenizer limitation
-    assert render('{{#if show}} body {{^~}} other {{/if}}', {'show': True}) == ' body'
-    assert render('{{#if show}} body {{^~}} other {{/if}}', {'show': False}) == ' other '
+
+
+def test_caret_strip_close():
+    """{{^~}} strips leading whitespace from inverse."""
+    assert render('{{#if show}} body {{^~}} other {{/if}}', {'show': True}) == ' body '
+    assert render('{{#if show}} body {{^~}} other {{/if}}', {'show': False}) == 'other '
 
 
 def test_caret_strip_both():

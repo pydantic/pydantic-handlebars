@@ -227,9 +227,16 @@ class _TemplateTokenizer:
         if next_ch in special_map:
             self._advance()
             token_type, value = special_map[next_ch]
-            self._emit(token_type, value, line, col)
-            if open_strip:
+            if open_strip and next_ch == '^':
+                # For ^, emit STRIP before OPEN_INVERSE so the parser can
+                # distinguish {{~^}} (open strip) from {{^~}} (close strip).
+                # Other special chars always have content separating the strips.
                 self._emit(TokenType.STRIP, '~', line, col + 2)
+                self._emit(token_type, value, line, col)
+            else:
+                self._emit(token_type, value, line, col)
+                if open_strip:
+                    self._emit(TokenType.STRIP, '~', line, col + 2)
             self._read_mustache_body()
             return
 

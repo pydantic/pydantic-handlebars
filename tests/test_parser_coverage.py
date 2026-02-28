@@ -458,6 +458,15 @@ def test_triple_stache_with_strips():
     assert mustache.strip.close_standalone is True
 
 
+def test_inverse_block_with_open_strip():
+    """{{~^unless}} at top level — STRIP before OPEN_INVERSE in token stream."""
+    ast = parse('x {{~^unless show}}fallback{{/unless}}')
+    assert isinstance(ast.body[0], ContentStatement)
+    block = ast.body[1]
+    assert isinstance(block, BlockStatement)
+    assert block.open_strip.open_standalone is True
+
+
 def test_block_with_strip_on_close():
     """Block with strip markers on close tag."""
     ast = parse('{{#if cond}}content{{~/if~}}')

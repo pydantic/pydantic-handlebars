@@ -134,6 +134,8 @@ class _Parser:
             return self._parse_block()
         if token.type == TokenType.OPEN_INVERSE:
             return self._parse_inverse_block()
+        if token.type == TokenType.STRIP and self._peek(1).type == TokenType.OPEN_INVERSE:
+            return self._parse_inverse_block()
         if token.type == TokenType.OPEN_RAW_BLOCK:
             return self._parse_raw_block()
         if token.type == TokenType.OPEN_ENDBLOCK:
@@ -232,7 +234,9 @@ class _Parser:
         close_strip = StripFlags()
 
         # Check for inverse / else / chained else
-        if self._current().type == TokenType.OPEN_INVERSE:
+        if self._current().type == TokenType.OPEN_INVERSE or (
+            self._current().type == TokenType.STRIP and self._peek(1).type == TokenType.OPEN_INVERSE
+        ):
             inverse, inverse_strip, close_strip = self._parse_inverse_chain()
         elif self._current().type == TokenType.OPEN and self._is_else():
             inverse, inverse_strip, close_strip = self._parse_else_chain(path)
@@ -275,9 +279,8 @@ class _Parser:
 
     def _parse_inverse_block(self) -> BlockStatement:
         """Parse an inverse block: {{^helper}}...{{/helper}} or standalone {{^}}."""
+        open_strip_before = self._consume_strip()  # leading strip for {{~^
         open_token = self._advance()  # consume OPEN_INVERSE
-
-        open_strip_before = self._consume_strip()
 
         # Check if this is a standalone {{^}} (shorthand for {{else}})
         # or {{^helper}}...{{/helper}}
@@ -354,6 +357,8 @@ class _Parser:
         """Check if the current position has an {{else}} or {{^}} tag."""
         if self._current().type == TokenType.OPEN_INVERSE:
             return True  # pragma: no cover
+        if self._current().type == TokenType.STRIP and self._peek(1).type == TokenType.OPEN_INVERSE:
+            return True  # pragma: no cover
         if self._current().type == TokenType.OPEN:
             # Look ahead for 'else'
             pos = self._pos + 1
@@ -365,29 +370,20 @@ class _Parser:
         return False
 
     def _parse_inverse_chain(self) -> tuple[Program, StripFlags, StripFlags]:
-        """Parse an inverse chain starting with {{^}}."""
-        # Consume {{^
+        """Parse an inverse chain starting with {{^}}.
+
+        The open strip (from ``{{~^``) is now emitted as a STRIP token *before*
+        OPEN_INVERSE by the tokenizer, so consuming it here distinguishes
+        ``{{~^}}`` (open strip) from ``{{^~}}`` (close strip).
+        """
+        inv_strip_open = self._consume_strip()  # leading strip for {{~^
         self._advance()  # OPEN_INVERSE
-        inv_strip_open = self._consume_strip()
-
-        # Check if this is {{^}} or {{^ condition}} (chained else if)
-        if self._current().type == TokenType.CLOSE:
-            # Simple {{^}} (same as {{else}})
-            inv_strip_close = self._consume_strip()
-            self._expect(TokenType.CLOSE)
-
-            inv_strip = StripFlags(open_standalone=inv_strip_open, close_standalone=inv_strip_close)
-
-            # Parse inverse body until {{/
-            inverse_stmts = self._parse_body(_EndCondition.endblock())
-            return Program(body=inverse_stmts), inv_strip, StripFlags()
-
-        # This has content - it's like a chained else if
-        # Not standard Handlebars but we handle it
-        inv_strip_close = self._consume_strip()
+        inv_strip_close = self._consume_strip()  # trailing strip for ^~}}
         self._expect(TokenType.CLOSE)
 
         inv_strip = StripFlags(open_standalone=inv_strip_open, close_standalone=inv_strip_close)
+
+        # Parse inverse body until {{/
         inverse_stmts = self._parse_body(_EndCondition.endblock())
         return Program(body=inverse_stmts), inv_strip, StripFlags()
 
@@ -445,7 +441,9 @@ class _Parser:
         inner_inv_strip = StripFlags()
         inner_close_strip = StripFlags()
 
-        if self._current().type == TokenType.OPEN_INVERSE:
+        if self._current().type == TokenType.OPEN_INVERSE or (
+            self._current().type == TokenType.STRIP and self._peek(1).type == TokenType.OPEN_INVERSE
+        ):
             inner_inverse, inner_inv_strip, inner_close_strip = self._parse_inverse_chain()
         elif self._is_else():
             inner_inverse, inner_inv_strip, inner_close_strip = self._parse_else_chain(block_path)
@@ -707,8 +705,10 @@ class _EndCondition:
             return True
 
         if self._or_else:
-            # Check for {{^}}
+            # Check for {{^}} or {{~^}} (strip before inverse)
             if token.type == TokenType.OPEN_INVERSE:
+                return True
+            if token.type == TokenType.STRIP and parser.token_at(1).type == TokenType.OPEN_INVERSE:
                 return True
 
             # Check for {{else}} - OPEN followed by INVERSE
