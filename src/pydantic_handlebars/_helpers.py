@@ -334,12 +334,3 @@ def get_extra_helpers() -> dict[str, HelperFunc]:
         'not': _helper_not,
         'default': _helper_default,
     }
-
-
-def get_default_helpers() -> dict[str, HelperFunc]:
-    """Get all helpers (standard + extra).
-
-    Returns:
-        A dictionary mapping helper names to helper functions.
-    """
-    return {**get_standard_helpers(), **get_extra_helpers()}
