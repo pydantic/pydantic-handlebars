@@ -1,0 +1,51 @@
+site_name: pydantic-handlebars
+site_description: Pure Python implementation of the Handlebars template language
+repo_url: https://github.com/pydantic/pydantic-handlebars
+repo_name: pydantic/pydantic-handlebars
+
+theme:
+  name: material
+  palette:
+    - media: '(prefers-color-scheme: light)'
+      scheme: default
+      primary: custom
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: '(prefers-color-scheme: dark)'
+      scheme: slate
+      primary: custom
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - content.code.copy
+    - navigation.footer
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_source: false
+            show_bases: false
+            members_order: source
+            docstring_style: google
+
+nav:
+  - Overview: index.md
+  - Syntax Reference: syntax.md
+  - Built-in Helpers: helpers.md
+  - Python API: api.md
+  - Security: security.md
