@@ -39,7 +39,7 @@ jobs:
       - run: uv run --no-sync pytest tests/test_optional_pydantic.py
 
       # 2. Test with min pydantic
-      - run: uv pip install --resolution lowest 'pydantic>=2.0'
+      - run: uv pip install --resolution lowest --only-binary pydantic-core 'pydantic>=2.0'
       - run: uv pip freeze
       - run: uv run --no-sync pytest
 
