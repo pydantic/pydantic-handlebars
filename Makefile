@@ -1,4 +1,4 @@
-.PHONY: .uv .prek install format lint typecheck test testcov all
+.PHONY: .uv .prek install format lint typecheck test testcov fuzz all
 
 .uv:
 	@uv --version || echo 'Please install uv: https://docs.astral.sh/uv/getting-started/installation/'
@@ -27,5 +27,8 @@ test:
 testcov:
 	uv run coverage run -m pytest
 	uv run coverage report
+
+fuzz:
+	FUZZ_EXTENDED=1 uv run pytest tests/test_fuzz.py -x -s
 
 all: format lint typecheck testcov

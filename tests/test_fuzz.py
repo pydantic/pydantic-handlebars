@@ -28,19 +28,19 @@ from pydantic_handlebars._utils import BLOCKED_ATTRIBUTES
 # ---------------------------------------------------------------------------
 # Hypothesis settings — controlled by FUZZ_EXTENDED env var
 #
-# Default: fast enough for regular test runs (~15s)
-# Extended: thorough fuzzing for pre-release confidence (~2-5min)
+# Default: fast smoke tests for CI (~2s)
+# Extended: thorough fuzzing for pre-release confidence (~2-5min, `make fuzz`)
 # ---------------------------------------------------------------------------
 _extended = bool(os.environ.get('FUZZ_EXTENDED'))
 
 # Most tests: high-volume random input
-_base = settings(max_examples=5_000 if _extended else 200, suppress_health_check=[HealthCheck.too_slow])
+_base = settings(max_examples=5_000 if _extended else 20, suppress_health_check=[HealthCheck.too_slow])
 
 # Tests with expensive setup or structured generation
-_heavy = settings(max_examples=2_000 if _extended else 100, suppress_health_check=[HealthCheck.too_slow])
+_heavy = settings(max_examples=2_000 if _extended else 10, suppress_health_check=[HealthCheck.too_slow])
 
 # Tests that are inherently slow (deep nesting, large output)
-_light = settings(max_examples=500 if _extended else 30, suppress_health_check=[HealthCheck.too_slow])
+_light = settings(max_examples=500 if _extended else 5, suppress_health_check=[HealthCheck.too_slow])
 
 # ---------------------------------------------------------------------------
 # Reusable strategies
