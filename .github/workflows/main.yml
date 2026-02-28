@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - '**'
+  pull_request: {}
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen --all-groups
+      - run: make lint
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen --all-groups
+      - run: make typecheck
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: uv sync --frozen --all-groups
+      - run: make testcov
+
+  check:
+    if: always()
+    needs: [lint, typecheck, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: re-actors/alls-green@release/v1
+        with:
+          jobs: ${{ toJSON(needs) }}
+
+  release:
+    needs: [check]
+    if: success() && startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - uses: samuelcolvin/check-python-version@v4.1
+        id: check-python-version
+        with:
+          version_file_path: pyproject.toml
+      - run: uv build
+      - uses: pypa/gh-action-pypi-publish@release/v1
