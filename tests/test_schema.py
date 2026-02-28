@@ -1560,3 +1560,79 @@ def test_standard_helpers_always_known():
     assert result.is_compatible
     result = check_template_compatibility('{{log items}}', schema)
     assert result.is_compatible
+
+
+# --- Hash argument value validation ---
+
+
+def test_hash_arg_literal_value():
+    """Hash args with literal values should not cause issues."""
+    schema = {
+        'type': 'object',
+        'properties': {'name': {'type': 'string'}},
+        'required': ['name'],
+    }
+    result = check_template_compatibility('{{log name prefix="DEBUG:"}}', schema)
+    assert result.is_compatible
+
+
+def test_hash_arg_valid_field_reference():
+    """Hash args with valid field path references should pass."""
+    schema = {
+        'type': 'object',
+        'properties': {'name': {'type': 'string'}, 'style': {'type': 'string'}},
+        'required': ['name', 'style'],
+    }
+    result = check_template_compatibility('{{log name format=style}}', schema)
+    assert result.is_compatible
+
+
+def test_hash_arg_invalid_field_reference():
+    """Hash args with invalid field path references should be caught."""
+    schema = {
+        'type': 'object',
+        'properties': {'name': {'type': 'string'}},
+        'required': ['name'],
+    }
+    result = check_template_compatibility('{{log name format=missingField}}', schema)
+    assert not result.is_compatible
+    assert len(result.issues) == 1
+    assert result.issues[0].field_path == 'missingField'
+
+
+def test_hash_arg_block_helper():
+    """Hash args on block helpers should also be validated."""
+    schema = {
+        'type': 'object',
+        'properties': {'items': {'type': 'array', 'items': {'type': 'string'}}},
+        'required': ['items'],
+    }
+    result = check_template_compatibility(
+        '{{#myHelper items sort=missingField}}{{this}}{{/myHelper}}', schema, helpers={'myHelper'}
+    )
+    assert not result.is_compatible
+
+
+def test_hash_arg_subexpression():
+    """Hash args in subexpressions should be validated."""
+    schema = {
+        'type': 'object',
+        'properties': {'name': {'type': 'string'}},
+        'required': ['name'],
+    }
+    result = check_template_compatibility('{{(log name format=missingField)}}', schema)
+    assert not result.is_compatible
+
+
+def test_hash_arg_default_helper():
+    """Hash args on the default helper should use relaxed severity."""
+    schema = {
+        'type': 'object',
+        'properties': {'name': {'type': 'string'}},
+        'required': ['name'],
+    }
+    # Hash arg referencing a field not in required — should use downgraded severity
+    result = check_template_compatibility(
+        '{{default name fallback=altName}}', schema, helpers={'default'}, optional_field_severity='ignore'
+    )
+    assert result.is_compatible

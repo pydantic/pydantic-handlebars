@@ -175,15 +175,17 @@ class _SchemaChecker:
                     if helper_name == 'default':
                         self._check_default_helper(stmt, scope)
                         return
-                    # Validate params against schema
+                    # Validate params and hash arg values against schema
                     self._check_params(stmt.params, scope)
+                    self._check_params(list(stmt.hash_pairs.values()), scope)
                     return
 
         self._check_path(path, scope)
 
     def _check_subexpression(self, expr: SubExpression, scope: _SchemaScope) -> None:
-        """Check a subexpression's params."""
+        """Check a subexpression's params and hash arg values."""
         self._check_params(expr.params, scope)
+        self._check_params(list(expr.hash_pairs.values()), scope)
 
     def _check_params(self, params: list[Expression], scope: _SchemaScope) -> None:
         """Validate parameter expressions against the schema."""
@@ -219,8 +221,9 @@ class _SchemaChecker:
 
         # Registered/custom helpers
         if helper_name in self._known_helpers:
-            # Validate params
+            # Validate params and hash arg values
             self._check_params(stmt.params, scope)
+            self._check_params(list(stmt.hash_pairs.values()), scope)
             # Body is opaque — we don't know what context the helper provides
             opaque_scope = scope.child({}, is_opaque=True)
             self._check_program(stmt.body, opaque_scope)
@@ -576,14 +579,8 @@ class _SchemaChecker:
         original_severity = self._optional_field_severity
         self._optional_field_severity = 'ignore'
 
-        for param in stmt.params:
-            if isinstance(param, PathExpression):
-                if param.data:
-                    self._check_data_path(param, scope)
-                else:
-                    self._check_path(param, scope)
-            elif isinstance(param, SubExpression):
-                self._check_subexpression(param, scope)
+        self._check_params(stmt.params, scope)
+        self._check_params(list(stmt.hash_pairs.values()), scope)
 
         self._optional_field_severity = original_severity
 
