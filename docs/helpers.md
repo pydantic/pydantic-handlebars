@@ -1,8 +1,12 @@
 # Built-in Helpers
 
-pydantic_handlebars includes all standard Handlebars.js helpers plus additional utility helpers.
+pydantic_handlebars includes all standard Handlebars.js helpers. Additional utility, comparison, and
+boolean helpers are available as opt-in extras.
 
 ## Standard Helpers
+
+These 6 helpers are always available — they're included in every `HandlebarsEnvironment` and in the
+module-level `render()` function.
 
 ### `#if`
 
@@ -133,11 +137,19 @@ Logs values using Python's `warnings.warn`:
 {{log "debug info" level="warn"}}
 ```
 
-## Utility Helpers
+## Extra Helpers
 
-These are additional helpers not part of the Handlebars.js spec.
+The helpers below are **not** part of the Handlebars.js spec. They must be explicitly enabled:
 
-### `json`
+```python
+from pydantic_handlebars import HandlebarsEnvironment
+
+env = HandlebarsEnvironment(extra_helpers=True)
+```
+
+### Utility Helpers
+
+#### `json`
 
 Serialize a value to a JSON string:
 
@@ -146,13 +158,14 @@ Serialize a value to a JSON string:
 ```
 
 ```python
-from pydantic_handlebars import render
+from pydantic_handlebars import HandlebarsEnvironment
 
-print(render('{{{json obj}}}', {'obj': {'a': 1}}))
+env = HandlebarsEnvironment(extra_helpers=True)
+print(env.render('{{{json obj}}}', {'obj': {'a': 1}}))
 #> {"a": 1}
 ```
 
-### `uppercase`
+#### `uppercase`
 
 Convert a value to uppercase:
 
@@ -160,7 +173,7 @@ Convert a value to uppercase:
 {{uppercase name}}
 ```
 
-### `lowercase`
+#### `lowercase`
 
 Convert a value to lowercase:
 
@@ -168,7 +181,7 @@ Convert a value to lowercase:
 {{lowercase name}}
 ```
 
-### `trim`
+#### `trim`
 
 Strip leading and trailing whitespace:
 
@@ -176,7 +189,7 @@ Strip leading and trailing whitespace:
 {{trim value}}
 ```
 
-### `join`
+#### `join`
 
 Join array elements with a separator:
 
@@ -185,15 +198,16 @@ Join array elements with a separator:
 ```
 
 ```python
-from pydantic_handlebars import render
+from pydantic_handlebars import HandlebarsEnvironment
 
-print(render('{{join colors ", "}}', {'colors': ['red', 'green', 'blue']}))
+env = HandlebarsEnvironment(extra_helpers=True)
+print(env.render('{{join colors ", "}}', {'colors': ['red', 'green', 'blue']}))
 #> red, green, blue
 ```
 
 The default separator is `,`.
 
-### `truncate`
+#### `truncate`
 
 Truncate a string to N characters:
 
@@ -203,7 +217,7 @@ Truncate a string to N characters:
 
 The default length is 100.
 
-### `default`
+#### `default`
 
 Use a fallback value when the primary value is falsy:
 
@@ -211,11 +225,11 @@ Use a fallback value when the primary value is falsy:
 {{default name "Anonymous"}}
 ```
 
-## Comparison Helpers
+### Comparison Helpers
 
 These return boolean values and are typically used inside `#if` via subexpressions.
 
-### `eq` / `ne`
+#### `eq` / `ne`
 
 Equality and inequality:
 
@@ -224,7 +238,7 @@ Equality and inequality:
 {{#if (ne count 0)}}Has items{{/if}}
 ```
 
-### `gt` / `gte` / `lt` / `lte`
+#### `gt` / `gte` / `lt` / `lte`
 
 Numeric comparisons:
 
@@ -233,9 +247,9 @@ Numeric comparisons:
 {{#if (lte score 100)}}Valid{{/if}}
 ```
 
-## Boolean Helpers
+### Boolean Helpers
 
-### `and` / `or` / `not`
+#### `and` / `or` / `not`
 
 Boolean combinators for use in subexpressions:
 

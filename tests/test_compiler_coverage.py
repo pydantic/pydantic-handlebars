@@ -14,14 +14,12 @@ from typing import Any
 import pytest
 
 from pydantic_handlebars import (
-    Compiler,
     HandlebarsEnvironment,
     HandlebarsRuntimeError,
     HelperOptions,
-    Scope,
     render,
 )
-from pydantic_handlebars._compiler import _get_property, _noop_block
+from pydantic_handlebars._compiler import Compiler, Scope, _get_property, _noop_block
 from pydantic_handlebars._parser import parse
 
 # ---------------------------------------------------------------------------
@@ -61,6 +59,32 @@ class TestHelperOptionsDefaults:
     def test_name_property_default(self) -> None:
         opts = HelperOptions()
         assert opts.name == ''
+
+    def test_name_set_for_mustache_helper(self) -> None:
+        """options.name is set for inline/mustache helper calls (not just block helpers)."""
+        env = HandlebarsEnvironment()
+        captured_name: list[str] = []
+
+        def capture_name(*args: Any, options: HelperOptions) -> str:
+            captured_name.append(options.name)
+            return 'ok'
+
+        env.register_helper('my_inline', capture_name)
+        env.render('{{my_inline}}', {})
+        assert captured_name == ['my_inline']
+
+    def test_name_set_for_block_helper(self) -> None:
+        """options.name is set for block helper calls."""
+        env = HandlebarsEnvironment()
+        captured_name: list[str] = []
+
+        def capture_name(context: Any, *args: Any, options: HelperOptions) -> str:
+            captured_name.append(options.name)
+            return options.fn(context)
+
+        env.register_helper('my_block', capture_name)
+        env.render('{{#my_block}}body{{/my_block}}', {})
+        assert captured_name == ['my_block']
 
 
 # ---------------------------------------------------------------------------
@@ -156,6 +180,52 @@ class TestMaxOutputSize:
         compiler = Compiler(max_output_size=5)
         with pytest.raises(HandlebarsRuntimeError, match='Output size exceeds maximum'):
             compiler.render(program, {'val': 'x' * 10})
+
+    def test_max_output_size_incremental_each(self) -> None:
+        """Output size is checked incrementally during iteration, not just post-hoc."""
+        # Use context-based block iteration ({{#items}}), not {{#each}} which needs helpers
+        program = parse('{{#items}}AAAA{{/items}}')
+        compiler = Compiler(max_output_size=20)
+        # 10 items * 4 chars = 40 bytes, exceeds 20 limit
+        with pytest.raises(HandlebarsRuntimeError, match='Output size exceeds maximum'):
+            compiler.render(program, {'items': list(range(10))})
+
+    def test_max_output_size_incremental_allows_within_limit(self) -> None:
+        """Output under the limit should succeed."""
+        program = parse('{{#items}}A{{/items}}')
+        compiler = Compiler(max_output_size=20)
+        result = compiler.render(program, {'items': list(range(5))})
+        assert result == 'AAAAA'
+
+
+class TestDepthRecovery:
+    """Depth counter must be properly decremented after max-depth error."""
+
+    def test_compiler_reuse_after_depth_error(self) -> None:
+        """Compiler should work correctly after a max-depth error."""
+        compiler = Compiler(max_depth=2)
+
+        # Context-based blocks nest: top program -> #a block -> #b block -> #c block
+        deep = parse('{{#a}}{{#b}}{{#c}}{{this}}{{/c}}{{/b}}{{/a}}')
+        with pytest.raises(HandlebarsRuntimeError, match='Maximum nesting depth'):
+            compiler.render(deep, {'a': {'b': {'c': 'x'}}})
+
+        # After the error, the compiler should still work for simple templates
+        simple = parse('{{val}}')
+        assert compiler.render(simple, {'val': 'ok'}) == 'ok'
+
+    def test_depth_reset_across_renders(self) -> None:
+        """Multiple max-depth errors should not accumulate."""
+        compiler = Compiler(max_depth=2)
+
+        deep = parse('{{#a}}{{#b}}{{#c}}{{this}}{{/c}}{{/b}}{{/a}}')
+        for _ in range(5):
+            with pytest.raises(HandlebarsRuntimeError, match='Maximum nesting depth'):
+                compiler.render(deep, {'a': {'b': {'c': 'x'}}})
+
+        # Should still work after repeated failures
+        simple = parse('{{val}}')
+        assert compiler.render(simple, {'val': 'still works'}) == 'still works'
 
 
 # ---------------------------------------------------------------------------

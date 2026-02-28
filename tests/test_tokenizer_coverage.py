@@ -160,7 +160,7 @@ def test_long_comment_with_strip_close():
     """Long comment closed with strip marker on close."""
     tokens = tokenize('{{!-- comment --~}}')
     types = [t.type for t in tokens if t.type != TokenType.EOF]
-    assert types == [TokenType.COMMENT]
+    assert types == [TokenType.COMMENT, TokenType.STRIP]
     assert tokens[0].value == ' comment '
 
 
@@ -180,7 +180,7 @@ def test_short_comment_with_strip_close():
     """Short comment closed with strip marker."""
     tokens = tokenize('{{! comment ~}}')
     types = [t.type for t in tokens if t.type != TokenType.EOF]
-    assert types == [TokenType.COMMENT]
+    assert types == [TokenType.COMMENT, TokenType.STRIP]
     assert tokens[0].value == ' comment '
 
 

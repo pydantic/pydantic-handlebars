@@ -124,6 +124,8 @@ class _Parser:
             return self._parse_content()
         if token.type == TokenType.COMMENT:
             return self._parse_comment()
+        if token.type == TokenType.STRIP and self._peek(1).type == TokenType.COMMENT:
+            return self._parse_comment()
         if token.type == TokenType.OPEN:
             return self._parse_mustache()
         if token.type == TokenType.OPEN_UNESCAPED:
@@ -158,9 +160,12 @@ class _Parser:
         return ContentStatement(value=token.value, original=token.value)
 
     def _parse_comment(self) -> CommentStatement:
-        """Parse a comment token."""
+        """Parse a comment token, consuming any surrounding strip markers."""
+        open_strip = self._consume_strip()
         token = self._advance()
-        return CommentStatement(value=token.value)
+        close_strip = self._consume_strip()
+        strip = StripFlags(open_standalone=open_strip, close_standalone=close_strip)
+        return CommentStatement(value=token.value, strip=strip)
 
     def _parse_mustache(self) -> MustacheStatement:
         """Parse a mustache expression: {{ ... }}."""

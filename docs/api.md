@@ -13,7 +13,8 @@ print(render('Hello {{name}}!', {'name': 'World'}))
 #> Hello World!
 ```
 
-Uses a default environment with all built-in helpers registered.
+Uses a default environment with standard Handlebars helpers (`if`, `unless`, `each`, `with`,
+`lookup`, `log`).
 
 ::: pydantic_handlebars.render
 
@@ -116,7 +117,7 @@ An environment for rendering templates with custom helpers.
 ```python
 from pydantic_handlebars import HandlebarsEnvironment, HelperOptions
 
-env = HandlebarsEnvironment()
+env = HandlebarsEnvironment(extra_helpers=True)
 
 
 @env.helper
@@ -127,6 +128,9 @@ def shout(*args: object, options: HelperOptions) -> str:
 print(env.render('{{shout name}}', {'name': 'world'}))
 #> WORLD!!!
 ```
+
+Pass `extra_helpers=True` to include additional utility, comparison, and boolean helpers beyond the
+6 standard Handlebars.js helpers. See [Built-in Helpers](helpers.md) for the full list.
 
 ::: pydantic_handlebars.HandlebarsEnvironment
 

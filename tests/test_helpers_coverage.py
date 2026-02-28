@@ -11,6 +11,8 @@ import pytest
 
 from pydantic_handlebars import HandlebarsEnvironment, render
 
+_extra_env = HandlebarsEnvironment(extra_helpers=True)
+
 # --- _helper_if: line 25 (condition = context when args is empty) ---
 
 
@@ -164,37 +166,37 @@ class TestLogHelper:
 class TestCustomHelpersNoArgs:
     def test_json_no_args(self):
         """json with no args returns '' (line 164)."""
-        result = render('{{#if (json)}}yes{{else}}no{{/if}}', {})
+        result = _extra_env.render('{{#if (json)}}yes{{else}}no{{/if}}', {})
         assert result == 'no'
 
     def test_uppercase_no_args(self):
         """uppercase with no args returns '' (line 171)."""
-        result = render('{{#if (uppercase)}}yes{{else}}no{{/if}}', {})
+        result = _extra_env.render('{{#if (uppercase)}}yes{{else}}no{{/if}}', {})
         assert result == 'no'
 
     def test_lowercase_no_args(self):
         """lowercase with no args returns '' (line 178)."""
-        result = render('{{#if (lowercase)}}yes{{else}}no{{/if}}', {})
+        result = _extra_env.render('{{#if (lowercase)}}yes{{else}}no{{/if}}', {})
         assert result == 'no'
 
     def test_trim_no_args(self):
         """trim with no args returns '' (line 185)."""
-        result = render('{{#if (trim)}}yes{{else}}no{{/if}}', {})
+        result = _extra_env.render('{{#if (trim)}}yes{{else}}no{{/if}}', {})
         assert result == 'no'
 
     def test_join_no_args(self):
         """join with no args returns '' (line 192)."""
-        result = render('{{#if (join)}}yes{{else}}no{{/if}}', {})
+        result = _extra_env.render('{{#if (join)}}yes{{else}}no{{/if}}', {})
         assert result == 'no'
 
     def test_join_non_list_arg(self):
         """join with a non-list argument returns to_string of it (line 198)."""
-        result = render('{{join val}}', {'val': 'hello'})
+        result = _extra_env.render('{{join val}}', {'val': 'hello'})
         assert result == 'hello'
 
     def test_truncate_no_args(self):
         """truncate with no args returns '' (line 204)."""
-        result = render('{{#if (truncate)}}yes{{else}}no{{/if}}', {})
+        result = _extra_env.render('{{#if (truncate)}}yes{{else}}no{{/if}}', {})
         assert result == 'no'
 
 
@@ -204,62 +206,62 @@ class TestCustomHelpersNoArgs:
 class TestComparisonHelpersInsufficientArgs:
     def test_eq_no_args(self):
         """eq with no args returns False (line 215)."""
-        result = render('{{#if (eq)}}yes{{else}}no{{/if}}', {})
+        result = _extra_env.render('{{#if (eq)}}yes{{else}}no{{/if}}', {})
         assert result == 'no'
 
     def test_ne_no_args(self):
         """ne with no args returns True (line 222)."""
-        result = render('{{#if (ne)}}yes{{else}}no{{/if}}', {})
+        result = _extra_env.render('{{#if (ne)}}yes{{else}}no{{/if}}', {})
         assert result == 'yes'
 
     def test_gt_no_args(self):
         """gt with no args returns False (line 229)."""
-        result = render('{{#if (gt)}}yes{{else}}no{{/if}}', {})
+        result = _extra_env.render('{{#if (gt)}}yes{{else}}no{{/if}}', {})
         assert result == 'no'
 
     def test_gte_no_args(self):
         """gte with no args returns False (line 236)."""
-        result = render('{{#if (gte)}}yes{{else}}no{{/if}}', {})
+        result = _extra_env.render('{{#if (gte)}}yes{{else}}no{{/if}}', {})
         assert result == 'no'
 
     def test_lt_no_args(self):
         """lt with no args returns False (line 243)."""
-        result = render('{{#if (lt)}}yes{{else}}no{{/if}}', {})
+        result = _extra_env.render('{{#if (lt)}}yes{{else}}no{{/if}}', {})
         assert result == 'no'
 
     def test_lte_no_args(self):
         """lte with no args returns False (line 250)."""
-        result = render('{{#if (lte)}}yes{{else}}no{{/if}}', {})
+        result = _extra_env.render('{{#if (lte)}}yes{{else}}no{{/if}}', {})
         assert result == 'no'
 
     def test_eq_one_arg(self):
         """eq with only 1 arg returns False (line 215)."""
-        result = render('{{#if (eq a)}}yes{{else}}no{{/if}}', {'a': 1})
+        result = _extra_env.render('{{#if (eq a)}}yes{{else}}no{{/if}}', {'a': 1})
         assert result == 'no'
 
     def test_ne_one_arg(self):
         """ne with only 1 arg returns True (line 222)."""
-        result = render('{{#if (ne a)}}yes{{else}}no{{/if}}', {'a': 1})
+        result = _extra_env.render('{{#if (ne a)}}yes{{else}}no{{/if}}', {'a': 1})
         assert result == 'yes'
 
     def test_gt_one_arg(self):
         """gt with only 1 arg returns False (line 229)."""
-        result = render('{{#if (gt a)}}yes{{else}}no{{/if}}', {'a': 5})
+        result = _extra_env.render('{{#if (gt a)}}yes{{else}}no{{/if}}', {'a': 5})
         assert result == 'no'
 
     def test_gte_one_arg(self):
         """gte with only 1 arg returns False (line 236)."""
-        result = render('{{#if (gte a)}}yes{{else}}no{{/if}}', {'a': 5})
+        result = _extra_env.render('{{#if (gte a)}}yes{{else}}no{{/if}}', {'a': 5})
         assert result == 'no'
 
     def test_lt_one_arg(self):
         """lt with only 1 arg returns False (line 243)."""
-        result = render('{{#if (lt a)}}yes{{else}}no{{/if}}', {'a': 5})
+        result = _extra_env.render('{{#if (lt a)}}yes{{else}}no{{/if}}', {'a': 5})
         assert result == 'no'
 
     def test_lte_one_arg(self):
         """lte with only 1 arg returns False (line 250)."""
-        result = render('{{#if (lte a)}}yes{{else}}no{{/if}}', {'a': 5})
+        result = _extra_env.render('{{#if (lte a)}}yes{{else}}no{{/if}}', {'a': 5})
         assert result == 'no'
 
 
@@ -269,17 +271,17 @@ class TestComparisonHelpersInsufficientArgs:
 class TestBooleanHelpersNoArgs:
     def test_and_no_args(self):
         """and with no args returns False (line 257)."""
-        result = render('{{#if (and)}}yes{{else}}no{{/if}}', {})
+        result = _extra_env.render('{{#if (and)}}yes{{else}}no{{/if}}', {})
         assert result == 'no'
 
     def test_or_no_args(self):
         """or with no args returns False (line 267)."""
-        result = render('{{#if (or)}}yes{{else}}no{{/if}}', {})
+        result = _extra_env.render('{{#if (or)}}yes{{else}}no{{/if}}', {})
         assert result == 'no'
 
     def test_not_no_args(self):
         """not with no args returns True (line 277)."""
-        result = render('{{#if (not)}}yes{{else}}no{{/if}}', {})
+        result = _extra_env.render('{{#if (not)}}yes{{else}}no{{/if}}', {})
         assert result == 'yes'
 
 
@@ -289,10 +291,10 @@ class TestBooleanHelpersNoArgs:
 class TestDefaultEdgeCases:
     def test_default_one_arg(self):
         """default with 1 arg returns that arg (line 284)."""
-        result = render('{{default val}}', {'val': 'hello'})
+        result = _extra_env.render('{{default val}}', {'val': 'hello'})
         assert result == 'hello'
 
     def test_default_no_args(self):
         """default with no args returns None -> '' (line 284)."""
-        result = render('{{#if (default)}}yes{{else}}no{{/if}}', {})
+        result = _extra_env.render('{{#if (default)}}yes{{else}}no{{/if}}', {})
         assert result == 'no'

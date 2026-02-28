@@ -1,5 +1,7 @@
 """Tests for JSON Schema template compatibility checking."""
 
+from typing import Any
+
 import pytest
 
 from pydantic_handlebars import (
@@ -1406,3 +1408,89 @@ def test_each_parent_ref_in_context_block():
     }
     result = check_template_compatibility('{{#each items}}{{#sub}}{{val}}{{/sub}}{{/each}}', schema)
     assert result.is_compatible
+
+
+# --- Literal expressions in mustache position ---
+
+
+def test_literal_true_in_mustache():
+    """Schema checker should not crash on {{true}}."""
+    schema = {'type': 'object', 'properties': {'name': {'type': 'string'}}}
+    result = check_template_compatibility('{{true}}', schema)
+    assert result.is_compatible
+
+
+def test_literal_false_in_mustache():
+    """Schema checker should not crash on {{false}}."""
+    schema = {'type': 'object', 'properties': {'x': {'type': 'string'}}, 'required': ['x']}
+    result = check_template_compatibility('{{false}}', schema)
+    assert result.is_compatible
+
+
+def test_literal_null_in_mustache():
+    """Schema checker should not crash on {{null}}."""
+    schema = {'type': 'object', 'properties': {'x': {'type': 'string'}}, 'required': ['x']}
+    result = check_template_compatibility('{{null}}', schema)
+    assert result.is_compatible
+
+
+def test_literal_number_in_mustache():
+    """Schema checker should not crash on {{42}}."""
+    schema = {'type': 'object', 'properties': {'x': {'type': 'string'}}, 'required': ['x']}
+    result = check_template_compatibility('{{42}}', schema)
+    assert result.is_compatible
+
+
+def test_literal_string_in_mustache():
+    """Schema checker should not crash on {{"hello"}}."""
+    schema = {'type': 'object', 'properties': {'x': {'type': 'string'}}, 'required': ['x']}
+    result = check_template_compatibility('{{"hello"}}', schema)
+    assert result.is_compatible
+
+
+def test_literal_undefined_in_mustache():
+    """Schema checker should not crash on {{undefined}}."""
+    schema = {'type': 'object', 'properties': {'x': {'type': 'string'}}, 'required': ['x']}
+    result = check_template_compatibility('{{undefined}}', schema)
+    assert result.is_compatible
+
+
+# --- Schema: empty properties vs type object ---
+
+
+def test_empty_properties_allows_any_field():
+    """{'properties': {}} imposes no restriction on field access.
+
+    An empty properties dict is falsy in Python, so the checker treats it as
+    having no property constraints — any field access is allowed.
+    """
+    schema: dict[str, Any] = {'properties': {}}
+    result = check_template_compatibility('{{anything}}', schema)
+    assert result.is_compatible
+
+
+def test_type_object_errors_for_field_access():
+    """{'type': 'object'} with no properties errors for any {{field}} access.
+
+    A schema with just type=object and no properties key means no fields are
+    declared, so accessing any field is an error.
+    """
+    schema = {'type': 'object'}
+    result = check_template_compatibility('{{field}}', schema)
+    assert not result.is_compatible
+    assert len(result.issues) == 1
+    assert result.issues[0].field_path == 'field'
+
+
+def test_properties_restricts_to_declared_fields():
+    """{'properties': {'a': ...}} errors for fields not in properties.
+
+    When properties is non-empty, only declared fields are accessible.
+    """
+    schema = {'properties': {'a': {'type': 'string'}}}
+    result = check_template_compatibility('{{a}}', schema)
+    assert result.is_compatible
+
+    result = check_template_compatibility('{{b}}', schema)
+    assert not result.is_compatible
+    assert result.issues[0].field_path == 'b'

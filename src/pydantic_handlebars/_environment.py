@@ -5,8 +5,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, TypeVar, overload
 
-from pydantic_handlebars._compiler import Compiler, HelperFunc
-from pydantic_handlebars._helpers import get_default_helpers
+from pydantic_handlebars._compiler import MAX_DEPTH, MAX_OUTPUT_SIZE, Compiler, HelperFunc
+from pydantic_handlebars._helpers import get_extra_helpers, get_standard_helpers
 from pydantic_handlebars._parser import parse
 
 F = TypeVar('F', bound=Callable[..., Any])
@@ -44,9 +44,20 @@ class HandlebarsEnvironment:
         ```
     """
 
-    def __init__(self, *, auto_escape: bool = True) -> None:
-        self._helpers: dict[str, HelperFunc] = get_default_helpers()
+    def __init__(
+        self,
+        *,
+        extra_helpers: bool = False,
+        auto_escape: bool = True,
+        max_depth: int = MAX_DEPTH,
+        max_output_size: int = MAX_OUTPUT_SIZE,
+    ) -> None:
+        self._helpers: dict[str, HelperFunc] = get_standard_helpers()
+        if extra_helpers:
+            self._helpers.update(get_extra_helpers())
         self._auto_escape = auto_escape
+        self._max_depth = max_depth
+        self._max_output_size = max_output_size
 
     @property
     def auto_escape(self) -> bool:
@@ -126,10 +137,17 @@ class HandlebarsEnvironment:
         program = parse(source)
         helpers = dict(self._helpers)
         auto_escape = self._auto_escape
+        max_depth = self._max_depth
+        max_output_size = self._max_output_size
 
         def template(context: Any = None) -> str:
             ctx: Any = context if context is not None else {}
-            compiler = Compiler(helpers=helpers, auto_escape=auto_escape)
+            compiler = Compiler(
+                helpers=helpers,
+                auto_escape=auto_escape,
+                max_depth=max_depth,
+                max_output_size=max_output_size,
+            )
             return compiler.render(program, ctx)
 
         return template

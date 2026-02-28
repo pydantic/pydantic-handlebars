@@ -143,7 +143,7 @@ except HandlebarsParseError as e:
 
 - Full Handlebars syntax: variables, paths, blocks, comments, literals, subexpressions
 - All standard block helpers: `#if`, `#unless`, `#each`, `#with`, `lookup`, `log`
-- Additional helpers: `json`, `uppercase`, `lowercase`, `trim`, `join`, `truncate`, `default`, comparison operators, boolean combinators
+- Extra helpers (opt-in via `extra_helpers=True`): `json`, `uppercase`, `lowercase`, `trim`, `join`, `truncate`, `default`, comparison operators, boolean combinators
 - Pydantic-powered template validation against JSON schemas
 - Whitespace control with `~` markers
 - `@data` variables: `@root`, `@index`, `@key`, `@first`, `@last`

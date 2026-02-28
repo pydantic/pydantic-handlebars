@@ -156,7 +156,8 @@ class _SchemaChecker:
             self._check_subexpression(stmt.path, scope)
             return
 
-        assert isinstance(stmt.path, PathExpression)
+        if not isinstance(stmt.path, PathExpression):
+            return  # Literal values (true, null, 42, etc.) don't reference fields
 
         path = stmt.path
 
@@ -197,7 +198,8 @@ class _SchemaChecker:
 
     def _check_block(self, stmt: BlockStatement, scope: _SchemaScope) -> None:
         """Check a block statement."""
-        assert isinstance(stmt.path, PathExpression)
+        if not isinstance(stmt.path, PathExpression):  # pragma: no cover
+            return  # Exotic chained-else with non-path expression
 
         path = stmt.path
         helper_name = path.original

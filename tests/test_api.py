@@ -249,3 +249,20 @@ def test_auto_escape_compile():
     env = HandlebarsEnvironment(auto_escape=False)
     template = env.compile('{{x}}')
     assert template.render({'x': '<b>hi</b>'}) == '<b>hi</b>'
+
+
+def test_env_max_output_size():
+    """HandlebarsEnvironment respects max_output_size."""
+    env = HandlebarsEnvironment(max_output_size=10)
+    with pytest.raises(HandlebarsRuntimeError, match='Output size exceeds maximum'):
+        env.render('{{#each items}}AAAA{{/each}}', {'items': list(range(10))})
+
+
+def test_env_max_depth():
+    """HandlebarsEnvironment respects max_depth."""
+    env = HandlebarsEnvironment(max_depth=2)
+    with pytest.raises(HandlebarsRuntimeError, match='Maximum nesting depth'):
+        env.render(
+            '{{#each a}}{{#each b}}{{#each c}}{{this}}{{/each}}{{/each}}{{/each}}',
+            {'a': [{'b': [{'c': [1]}]}]},
+        )

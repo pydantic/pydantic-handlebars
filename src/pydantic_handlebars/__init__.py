@@ -6,7 +6,7 @@ from typing import Any, TypeVar, overload
 
 from pydantic import TypeAdapter
 
-from pydantic_handlebars._compiler import Compiler, HelperFunc, HelperOptions, Scope
+from pydantic_handlebars._compiler import HelperFunc, HelperOptions
 from pydantic_handlebars._environment import CompiledTemplate, HandlebarsEnvironment
 from pydantic_handlebars._exceptions import (
     HandlebarsError,
@@ -40,8 +40,6 @@ __all__ = [
     'TypedCompiler',
     'HelperFunc',
     'HelperOptions',
-    'Compiler',
-    'Scope',
     'escape_expression',
     'check_template_compatibility',
     'CompatibilityResult',
@@ -57,7 +55,7 @@ def render(source: str, context: dict[str, Any] | None = None) -> str:
     """Render a Handlebars template string with the given context.
 
     This is a convenience function that uses a default environment with
-    all built-in helpers registered.
+    standard Handlebars helpers registered.
 
     Args:
         source: The Handlebars template string.

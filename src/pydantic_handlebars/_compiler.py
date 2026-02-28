@@ -186,6 +186,7 @@ class Compiler:
         self._max_depth = max_depth
         self._max_output_size = max_output_size
         self._depth = 0
+        self._output_size = 0
 
     def render(self, program: Program, context: Any) -> str:
         """Render a program AST with the given context.
@@ -197,24 +198,22 @@ class Compiler:
         Returns:
             The rendered string.
         """
+        self._output_size = 0
         scope = Scope(context)
-        result = self._render_program(program, scope)
-
-        if len(result) > self._max_output_size:
-            raise HandlebarsRuntimeError(f'Output size exceeds maximum of {self._max_output_size} bytes')
-
-        return result
+        return self._render_program(program, scope)
 
     def _render_program(self, program: Program, scope: Scope) -> str:
         """Render a program (sequence of statements)."""
         self._depth += 1
-        if self._depth > self._max_depth:
-            raise HandlebarsRuntimeError(f'Maximum nesting depth of {self._max_depth} exceeded')
-
         try:
+            if self._depth > self._max_depth:
+                raise HandlebarsRuntimeError(f'Maximum nesting depth of {self._max_depth} exceeded')
             parts: list[str] = []
             for stmt in program.body:
                 rendered = self._render_statement(stmt, scope)
+                self._output_size += len(rendered)
+                if self._output_size > self._max_output_size:
+                    raise HandlebarsRuntimeError(f'Output size exceeds maximum of {self._max_output_size} bytes')
                 parts.append(rendered)
 
             # Apply whitespace control
@@ -303,7 +302,7 @@ class Compiler:
 
         options = HelperOptions(
             hash=hash_args,
-            data=scope.data,
+            data=dict(scope.data, _name=name),
         )
 
         if args:

@@ -288,8 +288,11 @@ def _helper_default(*args: Any, options: HelperOptions) -> Any:
     return value
 
 
-def get_default_helpers() -> dict[str, HelperFunc]:
-    """Get the default set of helpers.
+def get_standard_helpers() -> dict[str, HelperFunc]:
+    """Get the standard Handlebars.js helpers.
+
+    These are the 6 helpers defined in the Handlebars.js specification:
+    ``if``, ``unless``, ``each``, ``with``, ``lookup``, and ``log``.
 
     Returns:
         A dictionary mapping helper names to helper functions.
@@ -301,7 +304,19 @@ def get_default_helpers() -> dict[str, HelperFunc]:
         'with': _helper_with,
         'lookup': _helper_lookup,
         'log': _helper_log,
-        # Custom helpers
+    }
+
+
+def get_extra_helpers() -> dict[str, HelperFunc]:
+    """Get the extra (non-standard) helpers.
+
+    These are 16 custom helpers not part of the Handlebars.js spec:
+    comparison operators, boolean combinators, and utility helpers.
+
+    Returns:
+        A dictionary mapping helper names to helper functions.
+    """
+    return {
         'json': _helper_json,
         'uppercase': _helper_uppercase,
         'lowercase': _helper_lowercase,
@@ -319,3 +334,12 @@ def get_default_helpers() -> dict[str, HelperFunc]:
         'not': _helper_not,
         'default': _helper_default,
     }
+
+
+def get_default_helpers() -> dict[str, HelperFunc]:
+    """Get all helpers (standard + extra).
+
+    Returns:
+        A dictionary mapping helper names to helper functions.
+    """
+    return {**get_standard_helpers(), **get_extra_helpers()}

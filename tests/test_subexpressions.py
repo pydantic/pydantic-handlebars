@@ -5,7 +5,9 @@ Ported from handlebars.js spec/subexpressions.js.
 
 # pyright: reportUnknownLambdaType=false, reportUnknownArgumentType=false, reportArgumentType=false
 
-from pydantic_handlebars import HandlebarsEnvironment, HelperOptions, SafeString, render
+from pydantic_handlebars import HandlebarsEnvironment, HelperOptions, SafeString
+
+_extra_env = HandlebarsEnvironment(extra_helpers=True)
 
 
 def test_subexpression_as_arg():
@@ -45,17 +47,17 @@ def test_subexpression_in_hash():
 
 def test_subexpression_with_boolean_helpers():
     """Test subexpressions with eq/ne comparisons inside #if."""
-    assert render('{{#if (eq a b)}}equal{{else}}not equal{{/if}}', {'a': 1, 'b': 1}) == 'equal'
-    assert render('{{#if (eq a b)}}equal{{else}}not equal{{/if}}', {'a': 1, 'b': 2}) == 'not equal'
+    assert _extra_env.render('{{#if (eq a b)}}equal{{else}}not equal{{/if}}', {'a': 1, 'b': 1}) == 'equal'
+    assert _extra_env.render('{{#if (eq a b)}}equal{{else}}not equal{{/if}}', {'a': 1, 'b': 2}) == 'not equal'
 
 
 def test_subexpression_with_and_or():
-    assert render('{{#if (and a b)}}yes{{else}}no{{/if}}', {'a': True, 'b': True}) == 'yes'
-    assert render('{{#if (and a b)}}yes{{else}}no{{/if}}', {'a': True, 'b': False}) == 'no'
-    assert render('{{#if (or a b)}}yes{{else}}no{{/if}}', {'a': False, 'b': True}) == 'yes'
-    assert render('{{#if (or a b)}}yes{{else}}no{{/if}}', {'a': False, 'b': False}) == 'no'
+    assert _extra_env.render('{{#if (and a b)}}yes{{else}}no{{/if}}', {'a': True, 'b': True}) == 'yes'
+    assert _extra_env.render('{{#if (and a b)}}yes{{else}}no{{/if}}', {'a': True, 'b': False}) == 'no'
+    assert _extra_env.render('{{#if (or a b)}}yes{{else}}no{{/if}}', {'a': False, 'b': True}) == 'yes'
+    assert _extra_env.render('{{#if (or a b)}}yes{{else}}no{{/if}}', {'a': False, 'b': False}) == 'no'
 
 
 def test_subexpression_with_not():
-    assert render('{{#if (not a)}}yes{{else}}no{{/if}}', {'a': False}) == 'yes'
-    assert render('{{#if (not a)}}yes{{else}}no{{/if}}', {'a': True}) == 'no'
+    assert _extra_env.render('{{#if (not a)}}yes{{else}}no{{/if}}', {'a': False}) == 'yes'
+    assert _extra_env.render('{{#if (not a)}}yes{{else}}no{{/if}}', {'a': True}) == 'no'

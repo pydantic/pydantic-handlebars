@@ -7,6 +7,7 @@ repos:
       - id: check-toml
       - id: end-of-file-fixer
       - id: trailing-whitespace
+        exclude: '^docs/.*\.md$'
 
   - repo: local
     hooks:

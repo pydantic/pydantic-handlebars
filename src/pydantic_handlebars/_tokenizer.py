@@ -240,7 +240,7 @@ class _TemplateTokenizer:
         self._read_mustache_body()
 
     def _read_comment(self, open_line: int, open_col: int, open_strip: bool) -> None:
-        """Read a comment tag."""
+        """Read a comment tag, emitting strip markers for whitespace control."""
         self._advance()  # consume !
 
         long_comment = self._starts_with('--')
@@ -252,24 +252,40 @@ class _TemplateTokenizer:
         if long_comment:
             while self._pos < len(self._source):
                 if self._starts_with('--~}}'):
-                    self._advance(5)
+                    self._advance(2)  # consume --
+                    if open_strip:
+                        self._emit(TokenType.STRIP, '~', open_line, open_col + 2)
                     self._emit(TokenType.COMMENT, ''.join(comment_parts), open_line, open_col)
+                    strip_l, strip_c = self._line, self._column
+                    self._advance(1)  # consume ~
+                    self._emit(TokenType.STRIP, '~', strip_l, strip_c)
+                    self._advance(2)  # consume }}
                     return
                 if self._starts_with('--}}'):
-                    self._advance(4)
+                    self._advance(2)  # consume --
+                    if open_strip:
+                        self._emit(TokenType.STRIP, '~', open_line, open_col + 2)
                     self._emit(TokenType.COMMENT, ''.join(comment_parts), open_line, open_col)
+                    self._advance(2)  # consume }}
                     return
                 comment_parts.append(self._advance())
             raise HandlebarsParseError('Unclosed comment', line=open_line, column=open_col)
         else:
             while self._pos < len(self._source):
                 if self._starts_with('~}}'):
-                    self._advance(3)
+                    if open_strip:
+                        self._emit(TokenType.STRIP, '~', open_line, open_col + 2)
                     self._emit(TokenType.COMMENT, ''.join(comment_parts), open_line, open_col)
+                    strip_l, strip_c = self._line, self._column
+                    self._advance(1)  # consume ~
+                    self._emit(TokenType.STRIP, '~', strip_l, strip_c)
+                    self._advance(2)  # consume }}
                     return
                 if self._starts_with('}}'):
-                    self._advance(2)
+                    if open_strip:
+                        self._emit(TokenType.STRIP, '~', open_line, open_col + 2)
                     self._emit(TokenType.COMMENT, ''.join(comment_parts), open_line, open_col)
+                    self._advance(2)  # consume }}
                     return
                 comment_parts.append(self._advance())
             raise HandlebarsParseError('Unclosed comment', line=open_line, column=open_col)

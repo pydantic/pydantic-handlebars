@@ -307,13 +307,15 @@ template API (`compile(source, Type)`) handles serialization automatically via P
 
 ### Built-in helpers
 
-| Category | Helpers |
-|---|---|
-| **Block** | `if`, `unless`, `each`, `with` |
-| **Utility** | `lookup`, `log`, `json`, `default` |
-| **String** | `uppercase`, `lowercase`, `trim`, `join`, `truncate` |
-| **Comparison** | `eq`, `ne`, `gt`, `gte`, `lt`, `lte` |
-| **Boolean** | `and`, `or`, `not` |
+| Category | Helpers | Availability |
+|---|---|---|
+| **Block** | `if`, `unless`, `each`, `with` | Standard |
+| **Utility** | `lookup`, `log` | Standard |
+| **String** | `json`, `uppercase`, `lowercase`, `trim`, `join`, `truncate`, `default` | Extra |
+| **Comparison** | `eq`, `ne`, `gt`, `gte`, `lt`, `lte` | Extra |
+| **Boolean** | `and`, `or`, `not` | Extra |
+
+Standard helpers are always available. Extra helpers require `HandlebarsEnvironment(extra_helpers=True)`.
 
 ## Custom Helpers
 
