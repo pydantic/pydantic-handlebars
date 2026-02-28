@@ -459,7 +459,7 @@ class _TemplateTokenizer:
         while self._pos < len(self._source) and self._peek().isdigit():
             num.append(self._advance())
 
-        if self._pos < len(self._source) and self._peek() == '.':
+        if self._pos < len(self._source) and self._peek() == '.' and self._peek(1).isdigit():
             num.append(self._advance())
             while self._pos < len(self._source) and self._peek().isdigit():
                 num.append(self._advance())

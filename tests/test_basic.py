@@ -221,3 +221,22 @@ def test_nested_hyphenated_key():
 
 def test_bracket_notation():
     assert render('{{[foo bar]}}', {'foo bar': 'baz'}) == 'baz'
+
+
+# --- Numeric array index in dot-notation ---
+
+
+def test_numeric_index_first():
+    assert render('{{items.0}}', {'items': ['a', 'b', 'c']}) == 'a'
+
+
+def test_numeric_index_second():
+    assert render('{{items.1}}', {'items': ['a', 'b', 'c']}) == 'b'
+
+
+def test_numeric_index_nested():
+    assert render('{{data.items.0.name}}', {'data': {'items': [{'name': 'Alice'}, {'name': 'Bob'}]}}) == 'Alice'
+
+
+def test_numeric_index_out_of_bounds():
+    assert render('{{items.5}}', {'items': ['a', 'b', 'c']}) == ''

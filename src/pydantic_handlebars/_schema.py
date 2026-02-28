@@ -497,6 +497,13 @@ class _SchemaChecker:
         resolved = self._resolve_ref(schema)
         resolved = self._unwrap_nullable(resolved)
 
+        # Numeric index on an array schema — descend into items
+        if property_name.isdigit() and resolved.get('type') == 'array':
+            items = resolved.get('items', {})
+            if isinstance(items, dict):
+                return self._resolve_ref(cast('_JsonSchema', items))
+            return {}
+
         # Check in anyOf/oneOf
         any_of = resolved.get('anyOf') or resolved.get('oneOf')
         if any_of is not None and isinstance(any_of, list):

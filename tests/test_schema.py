@@ -1624,6 +1624,84 @@ def test_hash_arg_subexpression():
     assert not result.is_compatible
 
 
+def test_numeric_index_on_array_schema():
+    schema = {
+        'type': 'object',
+        'properties': {
+            'items': {
+                'type': 'array',
+                'items': {'type': 'string'},
+            },
+        },
+        'required': ['items'],
+    }
+    result = check_template_compatibility('{{items.0}}', schema)
+    assert result.is_compatible
+    assert result.issues == []
+
+
+def test_numeric_index_nested_array_schema():
+    schema = {
+        'type': 'object',
+        'properties': {
+            'data': {
+                'type': 'object',
+                'properties': {
+                    'users': {
+                        'type': 'array',
+                        'items': {
+                            'type': 'object',
+                            'properties': {'name': {'type': 'string'}},
+                            'required': ['name'],
+                        },
+                    },
+                },
+                'required': ['users'],
+            },
+        },
+        'required': ['data'],
+    }
+    result = check_template_compatibility('{{data.users.0.name}}', schema)
+    assert result.is_compatible
+    assert result.issues == []
+
+
+def test_numeric_index_array_without_items_schema():
+    schema = {
+        'type': 'object',
+        'properties': {
+            'items': {
+                'type': 'array',
+                'items': True,
+            },
+        },
+        'required': ['items'],
+    }
+    result = check_template_compatibility('{{items.0}}', schema)
+    assert result.is_compatible
+
+
+def test_numeric_index_invalid_field_after():
+    schema = {
+        'type': 'object',
+        'properties': {
+            'items': {
+                'type': 'array',
+                'items': {
+                    'type': 'object',
+                    'properties': {'name': {'type': 'string'}},
+                    'required': ['name'],
+                },
+            },
+        },
+        'required': ['items'],
+    }
+    result = check_template_compatibility('{{items.0.missing}}', schema)
+    assert not result.is_compatible
+    assert len(result.issues) == 1
+    assert 'missing' in result.issues[0].message
+
+
 def test_hash_arg_default_helper():
     """Hash args on the default helper should use relaxed severity."""
     schema = {

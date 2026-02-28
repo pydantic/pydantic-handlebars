@@ -649,7 +649,7 @@ class _Parser:
         # Read subsequent path segments
         while self._current().type == TokenType.SEP:
             original_parts.append(self._advance().value)
-            if self._current().type == TokenType.ID:
+            if self._current().type in (TokenType.ID, TokenType.NUMBER):
                 token = self._advance()
                 parts.append(token.value)
                 original_parts.append(token.value)
