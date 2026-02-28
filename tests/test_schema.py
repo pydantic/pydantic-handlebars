@@ -6,6 +6,7 @@ import pytest
 
 from pydantic_handlebars import (
     CompatibilityResult,
+    HandlebarsParseError,
     TemplateIssue,
     TemplateSchemaError,
     check_template_compatibility,
@@ -348,6 +349,13 @@ def test_data_vars_skipped():
     assert not result.is_compatible
     # Only one issue for 'items'
     assert len(result.issues) == 1
+
+
+def test_bare_data_path_parse_error():
+    """{{@}} with no parts raises a parse error."""
+    schema = {'type': 'object', 'properties': {'name': {'type': 'string'}}, 'required': ['name']}
+    with pytest.raises(HandlebarsParseError):
+        check_template_compatibility('{{@}}', schema)
 
 
 # --- Block params ---

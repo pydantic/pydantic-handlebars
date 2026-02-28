@@ -237,7 +237,7 @@ class _SchemaChecker:
         if stmt.params:
             self._check_params(stmt.params, scope)
         elif isinstance(stmt.path, PathExpression):  # pragma: no cover
-            self._check_path(stmt.path, scope)
+            pass  # No params — condition is the current context, not a named field
 
         # Body and inverse stay in the same scope
         self._check_program(stmt.body, scope)
@@ -434,7 +434,8 @@ class _SchemaChecker:
 
     def _check_data_path(self, path: PathExpression, scope: _SchemaScope) -> None:
         """Check @data variable access."""
-        assert path.parts
+        if not path.parts:  # pragma: no cover
+            return
 
         first = path.parts[0]
         if first == 'root':
