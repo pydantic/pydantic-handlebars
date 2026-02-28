@@ -7,7 +7,7 @@ Pure Python implementation of the [Handlebars](https://handlebarsjs.com/) templa
 
 Given a Handlebars template and a type (Pydantic model, dataclass, TypedDict, or anything with a JSON schema), validates when the template is compiled that it only references fields that exist in the schema — catching typos, missing fields, and structural mismatches before any data is rendered.
 
-Depends only on [Pydantic](https://docs.pydantic.dev/). The Handlebars engine itself is pure Python with no additional runtime dependencies.
+The Handlebars engine is pure Python with **zero runtime dependencies**. Install the optional `pydantic` extra for template-schema validation.
 
 ## Installation
 
@@ -15,7 +15,13 @@ Depends only on [Pydantic](https://docs.pydantic.dev/). The Handlebars engine it
 pip install pydantic-handlebars
 ```
 
-Requires Python 3.10+ and Pydantic 2.0+.
+For template-schema validation (requires Pydantic 2.0+):
+
+```bash
+pip install pydantic-handlebars[pydantic]
+```
+
+Requires Python 3.10+. Pydantic 2.0+ is needed for typed template features.
 
 ## Quick Start
 

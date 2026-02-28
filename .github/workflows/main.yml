@@ -16,18 +16,12 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - run: uv sync --frozen --all-groups
       - run: make lint
-
-  typecheck:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - run: uv sync --frozen --all-groups
       - run: make typecheck
 
   test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version: ['3.10', '3.11', '3.12', '3.13']
     steps:
@@ -36,11 +30,22 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: uv sync --frozen --all-groups
+
+      # 1. Test without pydantic
+      - run: uv pip uninstall pydantic pydantic-core
+      - run: uv run pytest
+
+      # 2. Test with min pydantic
+      - run: uv pip install 'pydantic>=2.0,<2.1'
+      - run: uv run pytest
+
+      # 3. Test with latest pydantic + coverage
+      - run: uv pip install 'pydantic>=2.0'
       - run: make testcov
 
   check:
     if: always()
-    needs: [lint, typecheck, test]
+    needs: [lint, test]
     runs-on: ubuntu-latest
     steps:
       - uses: re-actors/alls-green@release/v1

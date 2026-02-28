@@ -877,7 +877,9 @@ wheels = [
 name = "pydantic-handlebars"
 version = "0.1.0"
 source = { editable = "." }
-dependencies = [
+
+[package.optional-dependencies]
+pydantic = [
     { name = "pydantic" },
 ]
 
@@ -902,7 +904,8 @@ lint = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pydantic", specifier = ">=2.0" }]
+requires-dist = [{ name = "pydantic", marker = "extra == 'pydantic'", specifier = ">=2.0" }]
+provides-extras = ["pydantic"]
 
 [package.metadata.requires-dev]
 dev = [

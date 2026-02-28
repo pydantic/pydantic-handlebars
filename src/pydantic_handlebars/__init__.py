@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, TypeVar, overload
-
-from pydantic import TypeAdapter
+import importlib.util
+from typing import TYPE_CHECKING, Any, TypeVar, overload
 
 from pydantic_handlebars._compiler import HelperFunc, HelperOptions
 from pydantic_handlebars._environment import CompiledTemplate, HandlebarsEnvironment
@@ -14,7 +13,6 @@ from pydantic_handlebars._exceptions import (
     HandlebarsRuntimeError,
     TemplateSchemaError,
 )
-from pydantic_handlebars._pydantic import CompiledTypedTemplate, TypedCompiler
 from pydantic_handlebars._schema import (
     CompatibilityResult,
     IssueSeverity,
@@ -22,6 +20,9 @@ from pydantic_handlebars._schema import (
     check_template_compatibility,
 )
 from pydantic_handlebars._utils import SafeString, escape_expression
+
+if TYPE_CHECKING:
+    from pydantic_handlebars._pydantic import CompiledTypedTemplate, TypedCompiler
 
 T = TypeVar('T')
 
@@ -49,6 +50,32 @@ __all__ = [
 
 # Default environment for module-level functions
 _default_env = HandlebarsEnvironment()
+
+
+def _require_pydantic(feature: str) -> None:
+    if importlib.util.find_spec('pydantic') is None:
+        raise ImportError(  # pragma: no cover
+            f'{feature} requires pydantic. Install it with: pip install pydantic-handlebars[pydantic]'
+        ) from None
+
+
+_PYDANTIC_EXPORTS: set[str] = {'CompiledTypedTemplate', 'TypedCompiler'}
+
+
+def __getattr__(name: str) -> object:
+    if name in _PYDANTIC_EXPORTS:
+        _require_pydantic(name)
+        from pydantic_handlebars._pydantic import (  # pragma: no cover
+            CompiledTypedTemplate as _CompiledTypedTemplate,
+        )
+        from pydantic_handlebars._pydantic import (
+            TypedCompiler as _TypedCompiler,
+        )
+
+        globals()['CompiledTypedTemplate'] = _CompiledTypedTemplate  # pragma: no cover
+        globals()['TypedCompiler'] = _TypedCompiler  # pragma: no cover
+        return globals()[name]  # pragma: no cover
+    raise AttributeError(f"module 'pydantic_handlebars' has no attribute {name!r}")
 
 
 def render(source: str, context: dict[str, Any] | None = None) -> str:
@@ -103,12 +130,17 @@ def compile(source: str, tp: type[Any] | None = None) -> CompiledTemplate | Comp
         ```
     """
     if tp is not None:
+        _require_pydantic('compile() with a type argument')
+        from pydantic import TypeAdapter
+
+        from pydantic_handlebars._pydantic import CompiledTypedTemplate as _CTT
+
         type_adapter: TypeAdapter[Any] = TypeAdapter(tp)
         json_schema = type_adapter.json_schema()
         helper_names = set(_default_env._helpers.keys())  # pyright: ignore[reportPrivateUsage]
         check_template_compatibility(source, json_schema, raise_on_error=True, helpers=helper_names)
         fn = _default_env._compile_fn(source)  # pyright: ignore[reportPrivateUsage]
-        return CompiledTypedTemplate(fn=fn, type_adapter=type_adapter)
+        return _CTT(fn=fn, type_adapter=type_adapter)
     return _default_env.compile(source)
 
 
@@ -128,4 +160,7 @@ def typed_compiler(
     Returns:
         A ``TypedCompiler`` instance.
     """
-    return TypedCompiler(tp, env=env, optional_field_severity=optional_field_severity)
+    _require_pydantic('typed_compiler()')
+    from pydantic_handlebars._pydantic import TypedCompiler as _TC
+
+    return _TC(tp, env=env, optional_field_severity=optional_field_severity)

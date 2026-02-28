@@ -1,6 +1,9 @@
 """Tests for Pydantic integration with typed template rendering."""
 
 import pytest
+
+pytest.importorskip('pydantic')
+
 from pydantic import BaseModel
 
 from pydantic_handlebars import (

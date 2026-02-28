@@ -22,7 +22,10 @@ classifiers = [
     'Programming Language :: Python :: 3.12',
     'Programming Language :: Python :: 3.13',
 ]
-dependencies = ['pydantic>=2.0']
+dependencies = []
+
+[project.optional-dependencies]
+pydantic = ['pydantic>=2.0']
 
 [project.urls]
 Homepage = 'https://github.com/pydantic/pydantic-handlebars'
@@ -85,7 +88,7 @@ filterwarnings = ['error']
 [tool.coverage.run]
 branch = true
 source = ['pydantic_handlebars', 'tests']
-omit = ['tests/test_fuzz.py']  # coverage depends on running enough cases, not worth it
+omit = ['tests/test_fuzz.py', 'tests/test_optional_pydantic.py']
 
 [tool.coverage.report]
 fail_under = 100

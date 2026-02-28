@@ -263,3 +263,10 @@ def test_env_max_depth():
             '{{#each a}}{{#each b}}{{#each c}}{{this}}{{/each}}{{/each}}{{/each}}',
             {'a': [{'b': [{'c': [1]}]}]},
         )
+
+
+def test_module_getattr_invalid():
+    import pydantic_handlebars
+
+    with pytest.raises(AttributeError, match="has no attribute 'nonexistent'"):
+        pydantic_handlebars.nonexistent  # type: ignore[attr-defined]
