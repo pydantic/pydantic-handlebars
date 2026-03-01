@@ -56,8 +56,16 @@ def test_compile_no_context():
 # --- SafeString ---
 
 
-def test_safe_string_not_escaped():
+def test_safe_string_in_context_serialized_to_str():
+    """SafeString in context is serialized to plain str, so it gets HTML-escaped.
+
+    Use {{{triple}}} syntax for unescaped output instead.
+    """
     result = render('{{content}}', {'content': SafeString('<b>bold</b>')})
+    assert result == '&lt;b&gt;bold&lt;/b&gt;'
+
+    # Triple-stache bypasses escaping
+    result = render('{{{content}}}', {'content': '<b>bold</b>'})
     assert result == '<b>bold</b>'
 
 

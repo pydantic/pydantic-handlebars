@@ -7,7 +7,7 @@ Pure Python implementation of the [Handlebars](https://handlebarsjs.com/) templa
 
 Given a Handlebars template and a type (Pydantic model, dataclass, TypedDict, or anything with a JSON schema), validates when the template is compiled that it only references fields that exist in the schema — catching typos, missing fields, and structural mismatches before any data is rendered.
 
-The Handlebars engine is pure Python with **zero runtime dependencies**. Install the optional `pydantic` extra for template-schema validation.
+The only runtime dependency is Pydantic (2.0+), which powers both template-schema validation and context serialization for security.
 
 ## Installation
 
@@ -15,13 +15,7 @@ The Handlebars engine is pure Python with **zero runtime dependencies**. Install
 pip install pydantic-handlebars
 ```
 
-For template-schema validation (requires Pydantic 2.0+):
-
-```bash
-pip install pydantic-handlebars[pydantic]
-```
-
-Requires Python 3.10+. Pydantic 2.0+ is needed for typed template features.
+Requires Python 3.10+ and Pydantic 2.0+.
 
 ## Quick Start
 
@@ -225,6 +219,8 @@ The schema checker statically walks the template AST and validates:
 
 In the age of agent development, templates are everywhere — system prompts, user-facing messages, tool descriptions. But templates have traditionally had a weakness: **no type checking**. A typo in a field name silently renders an empty string rather than failing loudly. This library captures more of the confidence you get from using Pydantic for data validation, applied to the template layer.
 
+Because Handlebars is a widely adopted standard, LLMs are already familiar with its syntax — making it a natural choice when AI agents need to read, write, or modify templates.
+
 ### Security
 
 Jinja2 is the most popular Python template engine, but its own documentation for the
@@ -270,15 +266,15 @@ them unsuitable for untrusted templates.
 
 Because the Handlebars grammar is constrained, templates can be parsed and analyzed without
 execution. This is what makes the schema validation feature possible — you can know at compile time
-whether a template is compatible with your data type. A more expressive template language would make
-this static analysis intractable.
+whether a template is compatible with your data type. Template expressivity is in tension with static
+analysis, and Handlebars strikes a good balance between the two.
 
 ### Industry adoption
 
-Handlebars (or its Mustache subset) has significant adoption in the AI/agent ecosystem:
-
-- [**Microsoft Semantic Kernel**](https://learn.microsoft.com/en-us/semantic-kernel/concepts/prompts/handlebars-prompt-templates) uses Handlebars as its primary prompt template format. Their [architecture decision record](https://github.com/microsoft/semantic-kernel/blob/main/docs/decisions/0023-handlebars-template-engine.md) notes: *"the majority of LLMs already support the Handlebars interface when dealing with prompts, which helps improve the accuracy of the response."*
-- [**Google Genkit / Dotprompt**](https://genkit.dev/docs/dotprompt/) extends Handlebars with GenAI-specific helpers for roles, media, and structured output.
+Handlebars (or its Mustache subset) is widely used across the AI/agent ecosystem — in agent
+frameworks, LLM observability platforms, prompt management tools, and API playgrounds. Its
+familiarity and simplicity make it a common default when these tools need a template language for
+prompt construction.
 
 ### JSON Schema as the validation medium
 
@@ -288,10 +284,10 @@ originally defined in. A schema generated from a Rust struct, TypeScript interfa
 works identically. Pydantic models generate JSON schemas automatically via `model_json_schema()`, so
 the integration is seamless.
 
-We recommend passing pre-serialized data (dicts, lists, primitives) to the rendering functions
-rather than arbitrary Python objects. JSON Schema naturally describes this serialized form. The typed
-template API (`compile(source, Type)`) handles serialization automatically via Pydantic's
-`dump_python()`.
+All context data is automatically serialized to JSON-safe types before rendering — the template
+engine only ever sees dicts, lists, strings, numbers, bools, and None. JSON Schema naturally
+describes this serialized form. The typed template API (`compile(source, Type)`) handles
+serialization via Pydantic's `dump_python(mode='json')`.
 
 ## Features
 
@@ -460,8 +456,10 @@ pydantic-handlebars is designed to safely render untrusted templates:
 
 - **No code evaluation** — The Handlebars expression language cannot call arbitrary Python functions,
   import modules, or execute code. Only explicitly registered helpers can be invoked.
-- **Dunder attribute blocking** — All `__dunder__` attribute access is blocked in path lookups,
-  preventing traversal attacks via `__class__.__mro__.__subclasses__` and similar chains.
+- **Data serialization** — All context data is serialized to JSON-safe types via
+  `pydantic_core.to_jsonable_python` before rendering. The template engine only ever sees dicts,
+  lists, strings, numbers, bools, and None — there are no dangerous Python objects to exploit, no
+  dunders, no methods, no properties with side effects.
 - **Depth limits** — Template nesting is capped (default 100 levels) to prevent stack overflow from
   recursive or deeply nested templates.
 - **Output size limits** — Rendered output is capped (default 10MB) to prevent memory exhaustion
@@ -469,10 +467,6 @@ pydantic-handlebars is designed to safely render untrusted templates:
 
 ### Recommendations
 
-- **Use pre-serialized data** — Pass dicts, lists, and primitives to the renderer rather than
-  arbitrary Python objects. Even with dunder blocking, exposing rich Python objects to the template
-  context increases the surface area for unintended data access. The typed template API
-  (`compile(source, Type)`) handles serialization automatically via Pydantic's `dump_python()`.
 - **Register only trusted helpers** — Custom helpers execute as Python code. Only register helpers
   you control and trust.
 - **Validate templates against schemas** — Use the typed compilation API or

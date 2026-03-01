@@ -10,7 +10,7 @@ import warnings
 from typing import Any, cast
 
 from pydantic_handlebars._compiler import HelperFunc, HelperOptions
-from pydantic_handlebars._utils import is_blocked_attribute, is_falsy, to_string
+from pydantic_handlebars._utils import is_falsy, to_string
 
 
 def _helper_if(context: Any, *args: Any, options: HelperOptions) -> str:
@@ -24,10 +24,6 @@ def _helper_if(context: Any, *args: Any, options: HelperOptions) -> str:
     else:
         condition = context
 
-    # Support callable conditions
-    if callable(condition) and not isinstance(condition, (str, bool, int, float, list, dict)):
-        condition = condition()
-
     if not is_falsy(condition):
         return options.fn(context)
     return options.inverse(context)
@@ -39,9 +35,6 @@ def _helper_unless(context: Any, *args: Any, options: HelperOptions) -> str:
         condition = args[0]
     else:
         condition = context
-
-    if callable(condition) and not isinstance(condition, (str, bool, int, float, list, dict)):
-        condition = condition()
 
     if is_falsy(condition):
         return options.fn(context)
@@ -134,14 +127,7 @@ def _helper_lookup(*args: Any, options: HelperOptions) -> Any:
             pass
         return None
 
-    # Try attribute access
-    key_str = str(key)
-    if is_blocked_attribute(key_str):
-        return None
-    try:
-        return getattr(obj, key_str)
-    except AttributeError:
-        return None
+    return None
 
 
 def _helper_log(*args: Any, options: HelperOptions) -> str:

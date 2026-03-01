@@ -24,7 +24,7 @@ from pydantic_handlebars._ast_nodes import (
     UndefinedLiteral,
 )
 from pydantic_handlebars._exceptions import HandlebarsRuntimeError
-from pydantic_handlebars._utils import SafeString, escape_expression, is_blocked_attribute, is_falsy, to_string
+from pydantic_handlebars._utils import SafeString, escape_expression, is_falsy, to_string
 
 # Maximum nesting depth to prevent stack overflow
 MAX_DEPTH = 100
@@ -284,12 +284,6 @@ class Compiler:
         else:
             value = self._eval_expression(stmt.path, scope)
 
-        # If value is a helper and there are params, call it
-        if callable(value) and stmt.params:
-            args = [self._eval_expression(p, scope) for p in stmt.params]
-            hash_args = {k: self._eval_expression(v, scope) for k, v in stmt.hash_pairs.items()}
-            value = value(*args, **hash_args)
-
         result = to_string(value)
 
         if self._auto_escape and stmt.escaped and not isinstance(value, SafeString):
@@ -526,13 +520,7 @@ class Compiler:
 
 
 def _get_property(obj: Any, name: str) -> Any:
-    """Safely get a property from an object.
-
-    Blocks access to dunder attributes and 'constructor'.
-    """
-    if is_blocked_attribute(name):
-        return None
-
+    """Safely get a property from an object."""
     if isinstance(obj, dict):
         return cast('dict[str, Any]', obj).get(name)
 
@@ -542,11 +530,7 @@ def _get_property(obj: Any, name: str) -> Any:
         except (ValueError, IndexError):
             return None
 
-    # Try attribute access
-    try:
-        return getattr(obj, name)
-    except AttributeError:
-        return None
+    return None
 
 
 def _get_strip_flags(stmt: Statement) -> tuple[bool, bool] | None:

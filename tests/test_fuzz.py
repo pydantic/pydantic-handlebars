@@ -23,7 +23,6 @@ from pydantic_handlebars import (
 from pydantic_handlebars._compiler import Compiler
 from pydantic_handlebars._parser import parse
 from pydantic_handlebars._tokenizer import tokenize
-from pydantic_handlebars._utils import BLOCKED_ATTRIBUTES
 
 # ---------------------------------------------------------------------------
 # Hypothesis settings — controlled by FUZZ_EXTENDED env var
@@ -271,40 +270,6 @@ def test_render_matches_compiled_render(template: str, ctx: dict[str, object]) -
 
 
 # ===========================================================================
-# 6. Security: dunder attributes are never accessible
-# ===========================================================================
-
-
-@given(
-    attr=st.sampled_from(sorted(BLOCKED_ATTRIBUTES)),
-    ctx_value=st.text(min_size=1, max_size=20),
-)
-@_base
-def test_blocked_attributes_never_resolve(attr: str, ctx_value: str) -> None:
-    """No blocked attribute should ever appear in rendered output."""
-    # Direct access
-    result = render('{{' + attr + '}}', {attr: ctx_value})
-    assert ctx_value not in result
-
-    # Nested access
-    result = render('{{obj.' + attr + '}}', {'obj': {attr: ctx_value}})
-    assert ctx_value not in result
-
-
-@given(
-    prefix=_identifier,
-    dunder=st.from_regex(r'__[a-z]{1,12}__', fullmatch=True),
-)
-@_base
-def test_arbitrary_dunder_paths_blocked(prefix: str, dunder: str) -> None:
-    """Any __x__ style attribute in a path should be silently blocked."""
-    template = '{{' + prefix + '.' + dunder + '}}'
-    ctx: dict[str, object] = {prefix: {dunder: 'LEAKED'}}
-    result = render(template, ctx)
-    assert 'LEAKED' not in result
-
-
-# ===========================================================================
 # 7. Security: HTML escaping is always applied in {{ }} context
 # ===========================================================================
 
@@ -452,11 +417,15 @@ def test_comments_never_appear_in_output(comment_text: str) -> None:
 
 @given(html=st.text(min_size=1, max_size=100))
 @_base
-def test_safestring_not_double_escaped(html: str) -> None:
-    """SafeString values should pass through {{expr}} without escaping."""
+def test_safestring_serialized_to_str(html: str) -> None:
+    """SafeString in context is serialized to plain str, so it gets HTML-escaped."""
     safe = SafeString(html)
     result = render('{{val}}', {'val': safe})
-    assert result == html
+    # SafeString is serialized to plain str, so < and > get escaped
+    if '<' in html:
+        assert '<' not in result
+    if '>' in html:
+        assert '>' not in result
 
 
 # ===========================================================================
@@ -601,17 +570,17 @@ def test_many_parent_refs(n: int) -> None:
 @given(data=st.data())
 @_heavy
 def test_unusual_context_values(data: st.DataObject) -> None:
-    """render() should handle unusual Python types in context without crashing."""
+    """render() should handle unusual Python types in context without crashing.
+
+    Non-serializable types raise HandlebarsError (via serialization).
+    """
     unusual_value = data.draw(
         st.one_of(
-            st.just(object()),
             st.just(frozenset({0})),
             st.just(b'bytes'),
             st.just({0}),
             st.just(()),
             st.just(range(10)),
-            st.just(type),
-            st.just(lambda: None),
             st.builds(
                 complex,
                 st.floats(allow_nan=False, allow_infinity=False),
@@ -640,11 +609,11 @@ def test_unusual_context_values(data: st.DataObject) -> None:
 )
 @_base
 def test_suspicious_context_keys(key: str) -> None:
-    """Suspicious keys should not lead to crashes or information leaks."""
+    """Suspicious keys are now normal dict keys (context is pre-serialized)."""
     try:
-        result = render('{{' + key + '}}', {key: 'LEAKED'})
-        if key.startswith('__'):
-            assert 'LEAKED' not in result
+        result = render('{{' + key + '}}', {key: 'VALUE'})
+        # All keys, including dunder keys, should now render their values
+        assert result == 'VALUE'
     except HandlebarsError:
         pass
 

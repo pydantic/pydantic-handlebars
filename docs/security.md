@@ -8,25 +8,35 @@ The Handlebars expression language cannot call arbitrary Python functions, impor
 execute code. Only explicitly registered helpers can be invoked from templates. There is no `eval`,
 `exec`, or dynamic code generation.
 
-## Attribute Access Restrictions
+## Data Serialization
 
-All Python "dunder" attributes are blocked in template path lookups. Attempting to access
-attributes like `__class__`, `__dict__`, `__globals__`, `__init__`, or any attribute starting
-with `__` will return an empty string.
+All context data is serialized to JSON-safe types via `pydantic_core.to_jsonable_python` before
+rendering. The template engine only ever sees dicts, lists, strings, numbers, bools, and None —
+there are no dangerous Python objects to exploit, no dunder attributes to traverse, no methods to
+call, and no properties with side effects.
+
+This eliminates entire categories of attacks:
+
+- **No object traversal** — `__class__.__mro__.__subclasses__` chains are impossible because
+  Python objects are converted to their JSON representation before the template sees them.
+- **No method calls** — Callables in context are not passed through; they are serialized like
+  any other value.
+- **No side effects** — Properties with side effects are evaluated once during serialization,
+  not during template rendering.
 
 ```python
+from datetime import datetime
+
 from pydantic_handlebars import render
 
-# These all render as empty string
-print(render('{{obj.__class__}}', {'obj': object()}))
-#> 
-#>
-print(render('{{obj.__dict__}}', {'obj': object()}))
-#> 
-#>
+# datetime is serialized to an ISO format string
+print(render('{{date}}', {'date': datetime(2024, 1, 15)}))
+#> 2024-01-15T00:00:00
 ```
 
-The `constructor` property is also blocked, matching Handlebars.js behavior.
+Types that `pydantic_core` cannot serialize (arbitrary classes, functions, etc.) will raise a
+`HandlebarsRuntimeError` at render time, ensuring that only safe, serializable data reaches
+the template engine.
 
 ## Nesting Depth Limits
 
@@ -69,10 +79,6 @@ Use `{{{triple}}}` or `{{&ampersand}}` syntax to output unescaped content when n
 
 ## Recommendations
 
-- **Use pre-serialized data.** Pass dicts, lists, and primitives to the renderer rather than
-  arbitrary Python objects. Even with dunder blocking, exposing rich Python objects to the template
-  context increases the surface area for unintended data access. The typed template API
-  (`compile(source, Type)`) handles serialization automatically via Pydantic's `dump_python()`.
 - **Register only trusted helpers.** Custom helpers execute as Python code. Only register helpers
   you control and trust.
 - **Validate templates against schemas.** Use the typed compilation API or

@@ -11,7 +11,7 @@ Pure Python implementation of the Handlebars template language.
 
 ## Code Rules
 
-- No runtime dependencies (stdlib only)
+- Only runtime dependency is pydantic (2.0+)
 - 100% test coverage required
 - All implementation modules are private (`_tokenizer.py`, etc.)
 - Public API is exported from `__init__.py`
@@ -30,7 +30,7 @@ Pure Python implementation of the Handlebars template language.
 
 ## Security
 
-Templates may be untrusted. Block all dunder attribute access (`__class__`, `__dict__`, etc.) in path lookups. Enforce depth limits for nesting.
+Templates may be untrusted. All context data is serialized to JSON-safe types via `pydantic_core.to_jsonable_python` before rendering — the template engine only sees dicts, lists, strings, numbers, bools, and None. Enforce depth limits for nesting.
 
 ## Testing
 

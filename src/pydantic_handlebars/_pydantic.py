@@ -32,7 +32,7 @@ class CompiledTypedTemplate(Generic[T]):
         Returns:
             The rendered template string.
         """
-        context = self._type_adapter.dump_python(data, mode='python')
+        context = self._type_adapter.dump_python(data, mode='json')
         return self._fn(context)
 
     def validate_and_render(self, data: Any) -> str:
@@ -84,7 +84,7 @@ class TypedCompiler(Generic[T]):
         optional_field_severity: IssueSeverity = 'error',
     ) -> None:
         self._type_adapter: TypeAdapter[T] = TypeAdapter(tp)
-        self._json_schema = self._type_adapter.json_schema()
+        self._json_schema = self._type_adapter.json_schema(mode='serialization')
         self._env = env or HandlebarsEnvironment()
         self._optional_field_severity: IssueSeverity = optional_field_severity
 

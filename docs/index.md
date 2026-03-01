@@ -4,18 +4,12 @@ Pure Python implementation of the [Handlebars](https://handlebarsjs.com/) templa
 
 Given a Handlebars template and a type (Pydantic model, dataclass, TypedDict, or anything with a JSON schema), validates when the template is compiled that it only references fields that exist in the schema — catching typos, missing fields, and structural mismatches before any data is rendered.
 
-The Handlebars engine is pure Python with **zero runtime dependencies**. Install the optional `pydantic` extra for template-schema validation.
+The only runtime dependency is Pydantic (2.0+), which powers both template-schema validation and context serialization for security.
 
 ## Installation
 
 ```bash
 pip install pydantic-handlebars
-```
-
-For template-schema validation (requires Pydantic 2.0+):
-
-```bash
-pip install pydantic-handlebars[pydantic]
 ```
 
 Or with uv:
@@ -24,7 +18,7 @@ Or with uv:
 uv add pydantic-handlebars
 ```
 
-Requires Python 3.10+. Pydantic 2.0+ is needed for typed template features.
+Requires Python 3.10+ and Pydantic 2.0+.
 
 ## Quick Start
 
@@ -115,7 +109,7 @@ print(env.render('{{loud name}}', {'name': 'world'}))
 By default, `{{expression}}` HTML-escapes output. Use triple-stache `{{{expression}}}` or `{{&expression}}` for unescaped output:
 
 ```python
-from pydantic_handlebars import SafeString, render
+from pydantic_handlebars import render
 
 # Escaped by default
 print(render('{{html}}', {'html': '<b>bold</b>'}))
@@ -124,11 +118,12 @@ print(render('{{html}}', {'html': '<b>bold</b>'}))
 # Triple-stache for unescaped
 print(render('{{{html}}}', {'html': '<b>bold</b>'}))
 #> <b>bold</b>
-
-# SafeString marks content as pre-escaped
-print(render('{{html}}', {'html': SafeString('<b>bold</b>')}))
-#> <b>bold</b>
 ```
+
+!!! note
+    `SafeString` values placed in context dicts will be serialized to plain `str` (losing the
+    safe marker). Use `{{{triple}}}` syntax for unescaped output. `SafeString` continues to work
+    when returned from helpers.
 
 For non-HTML use cases like prompt generation, disable escaping entirely with `HandlebarsEnvironment(auto_escape=False)`.
 
@@ -156,7 +151,7 @@ except HandlebarsParseError as e:
 - Block parameters: `{{#each items as |item index|}}`
 - Chained else: `{{#if a}}...{{else if b}}...{{else}}...{{/if}}`
 - Raw blocks: `{{{{raw}}}}...{{{{/raw}}}}`
-- Security: dunder attribute access blocked, depth limits enforced
+- Security: context data serialized to JSON-safe types, depth limits enforced
 
 ## What's Not Included
 

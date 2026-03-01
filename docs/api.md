@@ -201,14 +201,19 @@ print(env.render('{{#repeat times=3}}Ho {{/repeat}}', {}))
 
 ### `SafeString`
 
-Marks a string as already HTML-safe, preventing double-escaping:
+Marks a string as already HTML-safe when returned from helpers:
 
 ```python
 from pydantic_handlebars import SafeString, render
 
+# SafeString in context is serialized to plain str (escaped)
 print(render('{{content}}', {'content': SafeString('<b>bold</b>')}))
-#> <b>bold</b>
+#> &lt;b&gt;bold&lt;/b&gt;
 ```
+
+!!! note
+    `SafeString` values in context dicts are serialized to plain `str` before rendering. Use
+    `{{{triple}}}` syntax for unescaped output, or return `SafeString` from helpers.
 
 ::: pydantic_handlebars.SafeString
 

@@ -55,16 +55,6 @@ class TestUnlessNoArgs:
         result = render('{{#each items}}{{#unless}}yes{{else}}no{{/unless}}{{/each}}', {'items': [0]})
         assert result == 'yes'
 
-    def test_unless_with_callable_condition(self):
-        """Unless with a callable condition (line 44)."""
-        result = render('{{#unless fn}}yes{{else}}no{{/unless}}', {'fn': lambda: True})
-        assert result == 'no'
-
-    def test_unless_with_callable_returning_false(self):
-        """Unless with a callable returning falsy (line 44)."""
-        result = render('{{#unless fn}}yes{{else}}no{{/unless}}', {'fn': lambda: False})
-        assert result == 'yes'
-
 
 # --- _helper_each: line 67 (empty dict) ---
 
@@ -98,34 +88,14 @@ class TestLookupEdgeCases:
         result = render('{{lookup arr 99}}', {'arr': ['a', 'b', 'c']})
         assert result == ''
 
-    def test_lookup_attribute_access_on_object(self):
-        """Lookup tries attribute access on non-dict/non-list objects (lines 138-142)."""
-        env = HandlebarsEnvironment()
-
-        class MyObj:
-            color = 'blue'
-
-        result = env.render('{{lookup obj "color"}}', {'obj': MyObj()})
-        assert result == 'blue'
-
-    def test_lookup_attribute_missing(self):
-        """Lookup attribute access when attribute doesn't exist (lines 143-144)."""
-        env = HandlebarsEnvironment()
-
-        class MyObj:
-            color = 'blue'
-
-        result = env.render('{{lookup obj "missing"}}', {'obj': MyObj()})
+    def test_lookup_on_string_returns_empty(self):
+        """Lookup on a string (non-dict/non-list) returns empty."""
+        result = render('{{lookup obj "key"}}', {'obj': 'hello'})
         assert result == ''
 
-    def test_lookup_dunder_blocked(self):
-        """Lookup blocks dunder attribute access (lines 139-140)."""
-        env = HandlebarsEnvironment()
-
-        class MyObj:
-            pass
-
-        result = env.render('{{lookup obj "__class__"}}', {'obj': MyObj()})
+    def test_lookup_on_number_returns_empty(self):
+        """Lookup on a number (non-dict/non-list) returns empty."""
+        result = render('{{lookup obj 0}}', {'obj': 42})
         assert result == ''
 
     def test_lookup_null_object(self):

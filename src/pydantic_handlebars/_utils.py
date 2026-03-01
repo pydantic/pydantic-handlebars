@@ -15,32 +15,6 @@ _ESCAPE_MAP: dict[str, str] = {
     '=': '&#x3D;',
 }
 
-# Attributes that must never be accessed from templates
-BLOCKED_ATTRIBUTES: frozenset[str] = frozenset(
-    {
-        '__class__',
-        '__dict__',
-        '__globals__',
-        '__init__',
-        '__module__',
-        '__subclasses__',
-        '__bases__',
-        '__mro__',
-        '__reduce__',
-        '__reduce_ex__',
-        '__getattr__',
-        '__setattr__',
-        '__delattr__',
-        '__call__',
-        '__code__',
-        '__func__',
-        '__self__',
-        '__builtins__',
-        '__import__',
-        'constructor',
-    }
-)
-
 
 class SafeString(str):
     """A string subclass that marks content as safe (no HTML escaping).
@@ -118,15 +92,3 @@ def is_falsy(value: Any) -> bool:
     if isinstance(value, list):
         return not value
     return False
-
-
-def is_blocked_attribute(name: str) -> bool:
-    """Check if an attribute name is blocked for security.
-
-    Args:
-        name: The attribute name to check.
-
-    Returns:
-        True if the attribute is blocked.
-    """
-    return name.startswith('__') or name in BLOCKED_ATTRIBUTES

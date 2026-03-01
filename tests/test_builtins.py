@@ -71,17 +71,16 @@ def test_if_else_truthy():
     )
 
 
-def test_if_with_function():
+def test_if_with_boolean_true():
     assert (
-        render('{{#if goodbye}}GOODBYE {{/if}}cruel {{world}}!', {'goodbye': lambda: True, 'world': 'world'})
+        render('{{#if goodbye}}GOODBYE {{/if}}cruel {{world}}!', {'goodbye': True, 'world': 'world'})
         == 'GOODBYE cruel world!'
     )
 
 
-def test_if_with_function_returning_false():
+def test_if_with_boolean_false():
     assert (
-        render('{{#if goodbye}}GOODBYE {{/if}}cruel {{world}}!', {'goodbye': lambda: False, 'world': 'world'})
-        == 'cruel world!'
+        render('{{#if goodbye}}GOODBYE {{/if}}cruel {{world}}!', {'goodbye': False, 'world': 'world'}) == 'cruel world!'
     )
 
 

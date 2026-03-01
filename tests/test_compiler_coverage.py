@@ -255,42 +255,6 @@ class TestDepthRecovery:
 
 
 # ---------------------------------------------------------------------------
-# 4. _render_mustache - callable value with params (line 248, 273-276)
-# ---------------------------------------------------------------------------
-
-
-class TestRenderMustacheCallableWithParams:
-    """Lines 273-276: callable value resolved from context called with params."""
-
-    def test_callable_value_with_params(self) -> None:
-        """When a path resolves to a callable and there are params, call it."""
-        # Put a callable in the context (not as a registered helper)
-        result = render(
-            '{{greet name}}',
-            {
-                'greet': lambda name, **kw: f'Hello {name}',
-                'name': 'World',
-            },
-        )
-        assert result == 'Hello World'
-
-    def test_callable_value_with_params_and_hash(self) -> None:
-        """Callable from context called with both positional and hash args."""
-
-        def my_func(*args: Any, **kwargs: Any) -> str:
-            return f'{args[0]}-{kwargs.get("suffix", "")}'
-
-        result = render(
-            '{{formatter name suffix="!"}}',
-            {
-                'formatter': my_func,
-                'name': 'test',
-            },
-        )
-        assert result == 'test-!'
-
-
-# ---------------------------------------------------------------------------
 # 5. _call_helper_mustache - fallback signatures (lines 303-311)
 # ---------------------------------------------------------------------------
 
@@ -357,11 +321,7 @@ class TestRenderBlockWithoutHelper:
 
     def test_block_on_object_value(self) -> None:
         """Lines 350-352: block uses arbitrary value as context."""
-
-        class Obj:
-            name = 'Bob'
-
-        result = render('{{#obj}}{{name}}{{/obj}}', {'obj': Obj()})
+        result = render('{{#obj}}{{name}}{{/obj}}', {'obj': {'name': 'Bob'}})
         assert result == 'Bob'
 
     def test_block_on_falsy_with_inverse(self) -> None:
@@ -649,21 +609,13 @@ class TestGetProperty:
     def test_tuple_invalid_index(self) -> None:
         assert _get_property(('x', 'y'), 'bad') is None
 
-    def test_attribute_access(self) -> None:
-        """Line 549: getattr fallback."""
+    def test_non_dict_non_list_returns_none(self) -> None:
+        """Non-dict/list objects return None (no getattr fallback)."""
 
         class Obj:
             foo = 'bar'
 
-        assert _get_property(Obj(), 'foo') == 'bar'
-
-    def test_attribute_access_missing(self) -> None:
-        """Lines 550-551: AttributeError returns None."""
-
-        class Obj:
-            pass
-
-        assert _get_property(Obj(), 'nonexistent') is None
+        assert _get_property(Obj(), 'foo') is None
 
     def test_dict_access(self) -> None:
         assert _get_property({'key': 'val'}, 'key') == 'val'
@@ -671,8 +623,8 @@ class TestGetProperty:
     def test_dict_missing_key(self) -> None:
         assert _get_property({'key': 'val'}, 'other') is None
 
-    def test_blocked_attribute(self) -> None:
-        assert _get_property({'__class__': 'bad'}, '__class__') is None
+    def test_dunder_key_accessible(self) -> None:
+        assert _get_property({'__class__': 'ok'}, '__class__') == 'ok'
 
 
 # ---------------------------------------------------------------------------

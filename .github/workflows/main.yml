@@ -31,19 +31,12 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: uv sync --frozen --all-groups
 
-      # 1. Test without pydantic (--no-sync prevents uv from reinstalling it)
-      - run: uv pip uninstall pydantic pydantic-core
-      - run: uv pip freeze
-      - run: uv run --no-sync pytest
-      # Verify no-pydantic error message tests actually ran (not skipped)
-      - run: uv run --no-sync pytest tests/test_optional_pydantic.py
-
-      # 2. Test with min pydantic
+      # 1. Test with oldest compatible pydantic
       - run: uv pip install --resolution lowest --only-binary pydantic-core 'pydantic>=2.0'
       - run: uv pip freeze
       - run: uv run --no-sync pytest
 
-      # 3. Test with latest pydantic + coverage (uv sync restores lockfile versions)
+      # 2. Test with latest pydantic + coverage (uv sync restores lockfile versions)
       - run: uv sync --frozen --all-groups
       - run: uv pip freeze
       - run: make testcov

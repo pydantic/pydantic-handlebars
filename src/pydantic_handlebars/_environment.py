@@ -5,7 +5,10 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, TypeVar, overload
 
+from pydantic_core import PydanticSerializationError, to_jsonable_python
+
 from pydantic_handlebars._compiler import MAX_DEPTH, MAX_OUTPUT_SIZE, Compiler, HelperFunc
+from pydantic_handlebars._exceptions import HandlebarsRuntimeError
 from pydantic_handlebars._helpers import get_extra_helpers, get_standard_helpers
 from pydantic_handlebars._parser import parse
 
@@ -20,7 +23,12 @@ class CompiledTemplate:
 
     def render(self, context: dict[str, Any] | None = None) -> str:
         """Render the template with the given context."""
-        return self._fn(context if context is not None else {})
+        ctx = context if context is not None else {}
+        try:
+            serialized = to_jsonable_python(ctx)
+        except PydanticSerializationError as e:
+            raise HandlebarsRuntimeError(f'Context serialization failed: {e}') from e
+        return self._fn(serialized)
 
 
 class HandlebarsEnvironment:
