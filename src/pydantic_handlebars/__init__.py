@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from importlib.metadata import version
 from typing import Any, TypeVar, overload
 
 from pydantic import TypeAdapter
@@ -25,7 +26,10 @@ from pydantic_handlebars._utils import SafeString, escape_expression
 
 T = TypeVar('T')
 
+__version__ = version('pydantic-handlebars')
+
 __all__ = [
+    '__version__',
     'compile',
     'render',
     'typed_compiler',

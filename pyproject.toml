@@ -21,12 +21,16 @@ classifiers = [
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
     'Programming Language :: Python :: 3.13',
+    'Topic :: Software Development :: Libraries',
+    'Topic :: Text Processing :: Markup',
+    'Typing :: Typed',
 ]
 dependencies = ['pydantic>=2.0']
 
 [project.urls]
 Homepage = 'https://github.com/pydantic/pydantic-handlebars'
 Source = 'https://github.com/pydantic/pydantic-handlebars'
+Issues = 'https://github.com/pydantic/pydantic-handlebars/issues'
 
 [dependency-groups]
 dev = [
