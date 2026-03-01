@@ -46,7 +46,7 @@ class CompiledTypedTemplate(Generic[T]):
             The rendered template string.
         """
         validated = self._type_adapter.validate_python(data)
-        context = self._type_adapter.dump_python(validated, mode='python')
+        context = self._type_adapter.dump_python(validated, mode='json')
         return self._fn(context)
 
 

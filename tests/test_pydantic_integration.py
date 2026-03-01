@@ -1,5 +1,7 @@
 """Tests for Pydantic integration with typed template rendering."""
 
+from datetime import datetime
+
 import pytest
 
 pytest.importorskip('pydantic')
@@ -33,6 +35,11 @@ class UserWithAddress(BaseModel):
 class UserWithOptional(BaseModel):
     name: str
     email: str | None = None
+
+
+class Event(BaseModel):
+    title: str
+    date: datetime
 
 
 # --- compile(source, tp) one-shot API ---
@@ -123,3 +130,23 @@ def test_typed_compiler_multiple_templates():
     user = User(name='Alice', age=30)
     assert greeting.render(user) == 'Hello Alice!'
     assert info.render(user) == 'Alice is 30.'
+
+
+# --- mode='json' serialization ---
+
+
+def test_render_serializes_datetime_to_string():
+    """render() uses mode='json', so datetime becomes an ISO string."""
+    template = compile('Event: {{title}} on {{date}}', Event)
+    event = Event(title='Launch', date=datetime(2024, 1, 15, 10, 30))
+    result = template.render(event)
+    assert '2024-01-15' in result
+    assert 'Launch' in result
+
+
+def test_validate_and_render_serializes_datetime_to_string():
+    """validate_and_render() also uses mode='json', so datetime becomes an ISO string."""
+    template = compile('Event: {{title}} on {{date}}', Event)
+    result = template.validate_and_render({'title': 'Launch', 'date': '2024-01-15T10:30:00'})
+    assert '2024-01-15' in result
+    assert 'Launch' in result
