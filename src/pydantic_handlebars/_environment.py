@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, TypeVar, overload
 
-from pydantic_core import PydanticSerializationError, to_jsonable_python
+from pydantic_core import to_jsonable_python
 
 from pydantic_handlebars._compiler import MAX_DEPTH, MAX_OUTPUT_SIZE, Compiler, HelperFunc
 from pydantic_handlebars._exceptions import HandlebarsRuntimeError
@@ -26,7 +26,7 @@ class CompiledTemplate:
         ctx = context if context is not None else {}
         try:
             serialized = to_jsonable_python(ctx)
-        except PydanticSerializationError as e:
+        except ValueError as e:
             raise HandlebarsRuntimeError(f'Context serialization failed: {e}') from e
         return self._fn(serialized)
 
