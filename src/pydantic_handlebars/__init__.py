@@ -78,10 +78,14 @@ def compile(source: str) -> CompiledTemplate: ...  # pragma: no cover
 
 
 @overload
-def compile(source: str, tp: type[T]) -> CompiledTypedTemplate[T]: ...  # pragma: no cover
+def compile(
+    source: str, tp: type[T], *, serialize_as_any: bool = ...
+) -> CompiledTypedTemplate[T]: ...  # pragma: no cover
 
 
-def compile(source: str, tp: type[Any] | None = None) -> CompiledTemplate | CompiledTypedTemplate[Any]:
+def compile(
+    source: str, tp: type[Any] | None = None, *, serialize_as_any: bool = False
+) -> CompiledTemplate | CompiledTypedTemplate[Any]:
     """Compile a Handlebars template string into a reusable callable.
 
     When called with just a source string, returns a ``CompiledTemplate``.
@@ -91,6 +95,8 @@ def compile(source: str, tp: type[Any] | None = None) -> CompiledTemplate | Comp
     Args:
         source: The Handlebars template string.
         tp: Optional Pydantic model type or any type supported by TypeAdapter.
+        serialize_as_any: If True, serialize subclass fields instead of only
+            the declared type's fields. Only applies when ``tp`` is provided.
 
     Returns:
         A ``CompiledTemplate`` or ``CompiledTypedTemplate`` callable.
@@ -108,7 +114,7 @@ def compile(source: str, tp: type[Any] | None = None) -> CompiledTemplate | Comp
         helper_names = set(_default_env._helpers.keys())  # pyright: ignore[reportPrivateUsage]
         check_template_compatibility(source, json_schema, raise_on_error=True, helpers=helper_names)
         fn = _default_env._compile_fn(source)  # pyright: ignore[reportPrivateUsage]
-        return CompiledTypedTemplate(fn=fn, type_adapter=type_adapter)
+        return CompiledTypedTemplate(fn=fn, type_adapter=type_adapter, serialize_as_any=serialize_as_any)
     return _default_env.compile(source)
 
 
@@ -117,6 +123,7 @@ def typed_compiler(
     *,
     env: HandlebarsEnvironment | None = None,
     optional_field_severity: IssueSeverity = 'error',
+    serialize_as_any: bool = False,
 ) -> TypedCompiler[T]:
     """Create a typed compiler for repeated compilation against a type.
 
@@ -124,8 +131,12 @@ def typed_compiler(
         tp: The Pydantic model type or any type supported by TypeAdapter.
         env: Optional HandlebarsEnvironment. Uses a default if not provided.
         optional_field_severity: Severity for optional field access issues.
+        serialize_as_any: If True, serialize subclass fields instead of only
+            the declared type's fields.
 
     Returns:
         A ``TypedCompiler`` instance.
     """
-    return TypedCompiler(tp, env=env, optional_field_severity=optional_field_severity)
+    return TypedCompiler(
+        tp, env=env, optional_field_severity=optional_field_severity, serialize_as_any=serialize_as_any
+    )

@@ -19,9 +19,16 @@ class CompiledTypedTemplate(Generic[T]):
     Created by ``TypedCompiler.compile()`` or ``compile(source, tp)``.
     """
 
-    def __init__(self, *, fn: Callable[..., str], type_adapter: TypeAdapter[T]) -> None:
+    def __init__(
+        self,
+        *,
+        fn: Callable[..., str],
+        type_adapter: TypeAdapter[T],
+        serialize_as_any: bool = False,
+    ) -> None:
         self._fn = fn
         self._type_adapter = type_adapter
+        self._serialize_as_any = serialize_as_any
 
     def render(self, data: T) -> str:
         """Render with typed data (no runtime validation).
@@ -32,7 +39,7 @@ class CompiledTypedTemplate(Generic[T]):
         Returns:
             The rendered template string.
         """
-        context = self._type_adapter.dump_python(data, mode='json')
+        context = self._type_adapter.dump_python(data, mode='json', serialize_as_any=self._serialize_as_any)
         return self._fn(context)
 
     def validate_and_render(self, data: Any) -> str:
@@ -46,7 +53,7 @@ class CompiledTypedTemplate(Generic[T]):
             The rendered template string.
         """
         validated = self._type_adapter.validate_python(data)
-        context = self._type_adapter.dump_python(validated, mode='json')
+        context = self._type_adapter.dump_python(validated, mode='json', serialize_as_any=self._serialize_as_any)
         return self._fn(context)
 
 
@@ -82,11 +89,13 @@ class TypedCompiler(Generic[T]):
         *,
         env: HandlebarsEnvironment | None = None,
         optional_field_severity: IssueSeverity = 'error',
+        serialize_as_any: bool = False,
     ) -> None:
         self._type_adapter: TypeAdapter[T] = TypeAdapter(tp)
         self._json_schema = self._type_adapter.json_schema(mode='serialization')
         self._env = env or HandlebarsEnvironment()
         self._optional_field_severity: IssueSeverity = optional_field_severity
+        self._serialize_as_any = serialize_as_any
 
     @property
     def json_schema(self) -> dict[str, Any]:
@@ -115,4 +124,4 @@ class TypedCompiler(Generic[T]):
             helpers=helper_names,
         )
         fn = self._env._compile_fn(source)  # pyright: ignore[reportPrivateUsage]
-        return CompiledTypedTemplate(fn=fn, type_adapter=self._type_adapter)
+        return CompiledTypedTemplate(fn=fn, type_adapter=self._type_adapter, serialize_as_any=self._serialize_as_any)

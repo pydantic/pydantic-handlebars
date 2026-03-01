@@ -42,6 +42,14 @@ class Event(BaseModel):
     date: datetime
 
 
+class Animal(BaseModel):
+    name: str
+
+
+class Dog(Animal):
+    breed: str
+
+
 # --- compile(source, tp) one-shot API ---
 
 
@@ -150,3 +158,37 @@ def test_validate_and_render_serializes_datetime_to_string():
     result = template.validate_and_render({'title': 'Launch', 'date': '2024-01-15T10:30:00'})
     assert '2024-01-15' in result
     assert 'Launch' in result
+
+
+# --- serialize_as_any ---
+
+
+def test_serialize_as_any_default_strips_subclass_fields():
+    """By default, subclass fields are stripped during serialization."""
+    compiler = typed_compiler(Animal)
+    template = compiler.compile('{{breed}}', raise_on_error=False)
+    result = template.render(Dog(name='Rex', breed='Labrador'))
+    assert result == ''
+
+
+def test_serialize_as_any_via_compile():
+    """compile() accepts serialize_as_any and threads it to the template."""
+    template = compile('{{name}}', Animal, serialize_as_any=True)
+    result = template.render(Dog(name='Rex', breed='Labrador'))
+    assert result == 'Rex'
+
+
+def test_serialize_as_any_via_typed_compiler():
+    """serialize_as_any=True via typed_compiler() preserves subclass fields."""
+    compiler = typed_compiler(Animal, serialize_as_any=True)
+    template = compiler.compile('{{name}} ({{breed}})', raise_on_error=False)
+    result = template.render(Dog(name='Rex', breed='Labrador'))
+    assert result == 'Rex (Labrador)'
+
+
+def test_serialize_as_any_validate_and_render():
+    """serialize_as_any=True with validate_and_render preserves subclass fields."""
+    compiler = typed_compiler(Animal, serialize_as_any=True)
+    template = compiler.compile('{{name}} ({{breed}})', raise_on_error=False)
+    result = template.validate_and_render(Dog(name='Rex', breed='Labrador'))
+    assert result == 'Rex (Labrador)'

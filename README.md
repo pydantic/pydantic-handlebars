@@ -145,6 +145,36 @@ print(template.validate_and_render({'name': 'Bob', 'age': 25}))
 #> Hello Bob!
 ```
 
+### Subclass serialization
+
+By default, typed templates only serialize the fields declared on the type you compile against — extra
+fields from subclasses are stripped. This is the safer default since a subclass might add sensitive
+fields (e.g. `password`). To include subclass fields, pass `serialize_as_any=True`:
+
+```python
+from pydantic import BaseModel
+
+from pydantic_handlebars import typed_compiler
+
+
+class Animal(BaseModel):
+    name: str
+
+
+class Dog(Animal):
+    breed: str
+
+
+# serialize_as_any=True: subclass fields are preserved
+compiler = typed_compiler(Animal, serialize_as_any=True)
+template = compiler.compile('{{name}} ({{breed}})', raise_on_error=False)
+print(template.render(Dog(name='Rex', breed='Labrador')))
+#> Rex (Labrador)
+```
+
+The same option is available on the `compile()` shortcut via
+`compile(source, tp, serialize_as_any=True)`.
+
 ### Schema checking API
 
 For lower-level control, use `check_template_compatibility` directly with a JSON schema:
