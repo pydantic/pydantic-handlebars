@@ -476,9 +476,9 @@ class _Parser:
             name = self._advance().value
             # Build full path
             while self._current().type == TokenType.SEP:
-                self._advance()
+                sep = self._advance()
                 if self._current().type in (TokenType.ID, TokenType.NUMBER):  # pragma: no branch
-                    name += '.' + self._advance().value
+                    name += sep.value + self._advance().value
             if name != expected_path.original:
                 raise HandlebarsParseError(
                     f"{expected_path.original} doesn't match {name}",
