@@ -1,0 +1,14 @@
+name: Feature Request
+description: Suggest a new feature
+labels: [feature]
+
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: |
+        Please describe the feature you'd like to see. Demo code, use cases, and
+        references to similar projects are all helpful.
+    validations:
+      required: true

@@ -1,0 +1,35 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+labels: [bug]
+
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: |
+        Please explain what you're seeing and what you would expect to see.
+    validations:
+      required: true
+
+  - type: textarea
+    id: example
+    attributes:
+      label: Example Code
+      description: >
+        If possible, add a minimal,
+        [reproducible example](https://stackoverflow.com/help/minimal-reproducible-example)
+        that demonstrates the bug.
+      render: Python
+
+  - type: textarea
+    id: version
+    attributes:
+      label: Version Info
+      description: |
+        Which versions of Python and pydantic-handlebars are you using?
+      value: |
+        - Python:
+        - pydantic-handlebars:
+    validations:
+      required: true
