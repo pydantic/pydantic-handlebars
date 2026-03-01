@@ -62,8 +62,9 @@ templates that produce extremely large output (e.g., nested `#each` over large a
 
 ## HTML Escaping
 
-By default, all `{{expression}}` output is HTML-escaped. This prevents XSS attacks when
-rendering templates into HTML. Characters escaped:
+By default, HTML escaping is **disabled** (`auto_escape=False`) since this library is designed for
+prompt generation and other non-HTML use cases. When `auto_escape=True` is enabled, all
+`{{expression}}` output is HTML-escaped. Characters escaped:
 
 | Character | Escaped As |
 |-----------|-----------|
@@ -75,7 +76,12 @@ rendering templates into HTML. Characters escaped:
 | `` ` `` | `&#x60;` |
 | `=` | `&#x3D;` |
 
-Use `{{{triple}}}` or `{{&ampersand}}` syntax to output unescaped content when needed.
+`{{{triple}}}` and `{{&ampersand}}` syntax always output unescaped content regardless of the
+`auto_escape` setting.
+
+!!! warning
+    If you use this library to render **HTML that will be displayed in a browser**, you **must**
+    enable `auto_escape=True` to prevent cross-site scripting (XSS) vulnerabilities.
 
 ## Recommendations
 
@@ -86,5 +92,5 @@ Use `{{{triple}}}` or `{{&ampersand}}` syntax to output unescaped content when n
   templates come from external sources.
 - **Monitor output size.** The default 10 MB limit is generous. Reduce it for your use case
   if appropriate.
-- **Use HTML escaping.** Keep the default escaping behavior. Only use triple-stache for
-  content you trust.
+- **Enable HTML escaping for HTML output.** If rendering templates into HTML for browser display,
+  create an environment with `auto_escape=True`. Only use triple-stache for content you trust.

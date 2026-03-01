@@ -10,7 +10,8 @@ Use double curly braces to output a value:
 {{name}}
 ```
 
-Values are HTML-escaped by default. To output unescaped HTML, use triple-stache or `&`:
+Values are output as-is by default. When `auto_escape=True` is enabled, values are HTML-escaped.
+Triple-stache and `&` always output unescaped content regardless of the `auto_escape` setting:
 
 ```handlebars
 {{{rawHtml}}}

@@ -35,7 +35,9 @@ def _write_requires(example: CodeExample, eval_example: EvalExample) -> None:
         return
     for req in requires.split(','):
         req = req.strip()
+        mod_name = req.removesuffix('.py')
         (eval_example.tmp_path / req).write_text(_titled_sources[req])
+        sys.modules.pop(mod_name, None)
     sys.path.insert(0, str(eval_example.tmp_path))
 
 
