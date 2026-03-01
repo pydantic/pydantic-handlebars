@@ -93,12 +93,20 @@ def test_nested_serialization():
     assert '2024-01-15' in result
 
 
-# --- HTML escaping (unchanged) ---
+# --- HTML escaping ---
 
 
-def test_html_injection_escaped_by_default():
-    """HTML in values is escaped by default."""
-    assert render('{{val}}', {'val': '<script>alert(1)</script>'}) == '&lt;script&gt;alert(1)&lt;/script&gt;'
+def test_html_not_escaped_by_default():
+    """HTML in values is not escaped by default (auto_escape=False)."""
+    assert render('{{val}}', {'val': '<script>alert(1)</script>'}) == '<script>alert(1)</script>'
+
+
+def test_html_injection_escaped_when_enabled():
+    """HTML in values is escaped when auto_escape=True."""
+    from pydantic_handlebars import HandlebarsEnvironment
+
+    env = HandlebarsEnvironment(auto_escape=True)
+    assert env.render('{{val}}', {'val': '<script>alert(1)</script>'}) == '&lt;script&gt;alert(1)&lt;/script&gt;'
 
 
 def test_html_injection_not_escaped_with_triple():

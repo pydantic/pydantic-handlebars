@@ -1,5 +1,5 @@
 site_name: pydantic-handlebars
-site_description: Pure Python implementation of the Handlebars template language
+site_description: Handlebars template engine for composing LLM prompts, built on Pydantic
 repo_url: https://github.com/pydantic/pydantic-handlebars
 repo_name: pydantic/pydantic-handlebars
 

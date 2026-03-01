@@ -56,7 +56,7 @@ class HandlebarsEnvironment:
         self,
         *,
         extra_helpers: bool = False,
-        auto_escape: bool = True,
+        auto_escape: bool = False,
         max_depth: int = MAX_DEPTH,
         max_output_size: int = MAX_OUTPUT_SIZE,
     ) -> None:
@@ -71,10 +71,10 @@ class HandlebarsEnvironment:
     def auto_escape(self) -> bool:
         """Whether HTML auto-escaping is enabled for ``{{expression}}`` output.
 
-        When ``True`` (the default), double-stache expressions are HTML-escaped.
-        When ``False``, no escaping is applied — useful for non-HTML use cases
-        like prompt generation.  Triple-stache ``{{{expression}}}`` is always
-        unescaped regardless of this setting.
+        When ``False`` (the default), no escaping is applied — appropriate for
+        non-HTML use cases like prompt generation.  When ``True``,
+        double-stache expressions are HTML-escaped.  Triple-stache
+        ``{{{expression}}}`` is always unescaped regardless of this setting.
         """
         return self._auto_escape
 

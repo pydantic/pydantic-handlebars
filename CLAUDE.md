@@ -1,6 +1,6 @@
 # pydantic-handlebars
 
-Pure Python implementation of the Handlebars template language.
+Handlebars template engine for composing LLM prompts, built on Pydantic.
 
 ## Quick Reference
 

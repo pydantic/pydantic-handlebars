@@ -201,19 +201,27 @@ print(env.render('{{#repeat times=3}}Ho {{/repeat}}', {}))
 
 ### `SafeString`
 
-Marks a string as already HTML-safe when returned from helpers:
+Marks a string as already HTML-safe when returned from helpers. When `auto_escape=True`, helper
+return values wrapped in `SafeString` bypass HTML escaping:
 
 ```python
-from pydantic_handlebars import SafeString, render
+from pydantic_handlebars import HandlebarsEnvironment, HelperOptions, SafeString
 
-# SafeString in context is serialized to plain str (escaped)
-print(render('{{content}}', {'content': SafeString('<b>bold</b>')}))
-#> &lt;b&gt;bold&lt;/b&gt;
+env = HandlebarsEnvironment(auto_escape=True)
+
+
+@env.helper
+def bold(*args: object, options: HelperOptions) -> SafeString:
+    return SafeString(f'<b>{args[0]}</b>')
+
+
+print(env.render('{{bold name}}', {'name': 'Alice'}))
+#> <b>Alice</b>
 ```
 
 !!! note
-    `SafeString` values in context dicts are serialized to plain `str` before rendering. Use
-    `{{{triple}}}` syntax for unescaped output, or return `SafeString` from helpers.
+    `SafeString` values in context dicts are serialized to plain `str` before rendering, losing
+    the safe marker. `SafeString` is primarily useful as a return type from helpers.
 
 ::: pydantic_handlebars.SafeString
 

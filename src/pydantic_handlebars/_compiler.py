@@ -177,7 +177,7 @@ class Compiler:
         self,
         helpers: dict[str, HelperFunc] | None = None,
         *,
-        auto_escape: bool = True,
+        auto_escape: bool = False,
         max_depth: int = MAX_DEPTH,
         max_output_size: int = MAX_OUTPUT_SIZE,
     ) -> None:

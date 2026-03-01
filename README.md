@@ -3,11 +3,14 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Pure Python implementation of the [Handlebars](https://handlebarsjs.com/) template language with Pydantic-powered template validation.
+A Handlebars template engine for composing LLM prompts, built on Pydantic.
 
-Given a Handlebars template and a type (Pydantic model, dataclass, TypedDict, or anything with a JSON schema), validates when the template is compiled that it only references fields that exist in the schema — catching typos, missing fields, and structural mismatches before any data is rendered.
+Designed for AI/agent developers who build system prompts from dynamic data — few-shot examples,
+user-specific context, tool descriptions, and other content that shouldn't be hardcoded. Templates
+are validated against Pydantic models at compile time, catching typos and missing fields before any
+data is rendered.
 
-The only runtime dependency is Pydantic (2.0+), which powers both template-schema validation and context serialization for security.
+The only runtime dependency is Pydantic (2.0+).
 
 ## Installation
 
@@ -37,6 +40,159 @@ print(render('{{#each items}}{{this}}{{#unless @last}} {{/unless}}{{/each}}', {'
 # Conditionals
 print(render('{{#if show}}yes{{else}}no{{/if}}', {'show': True}))
 #> yes
+```
+
+## Prompt Composition
+
+Templates are a natural fit for building LLM prompts from structured data. This example builds a
+system prompt for a support agent — the guidelines and few-shot examples are data-driven, so they
+can be stored in a database, customized per customer, and iterated on without code changes:
+
+```python {title="agent_config.py"}
+from pydantic import BaseModel
+
+from pydantic_handlebars import compile
+
+
+class Turn(BaseModel):
+    role: str
+    content: str
+
+
+class AgentConfig(BaseModel):
+    company: str
+    guidelines: list[str]
+    dos: list[Turn]
+    donts: list[Turn]
+
+
+system_prompt = compile(
+    """\
+You are a support agent for {{company}}.
+
+{{#each guidelines~}}
+- {{this}}
+{{/each}}
+Follow the patterns shown in these examples:
+
+<examples label="good">
+{{#each dos~}}
+<{{role}}>
+{{content}}
+</{{role}}>
+{{/each~}}
+</examples>
+
+<examples label="bad — avoid these patterns">
+{{#each donts~}}
+<{{role}}>
+{{content}}
+</{{role}}>
+{{/each~}}
+</examples>\
+""",
+    AgentConfig,
+)
+
+prompt = system_prompt.render(
+    AgentConfig(
+        company='Acme Corp',
+        guidelines=[
+            'Be concise and helpful',
+            'Link to docs when relevant',
+            "If unsure, escalate — don't guess",
+        ],
+        dos=[
+            Turn(role='user', content='How do I reset my password?'),
+            Turn(
+                role='assistant',
+                content='Go to Settings → Security → Reset Password. '
+                "You'll get a confirmation email within 2 minutes.\n"
+                'Docs: https://docs.acme.com/password-reset',
+            ),
+        ],
+        donts=[
+            Turn(role='user', content='How do I reset my password?'),
+            Turn(
+                role='assistant',
+                content="I'm not sure, maybe check the settings page? "
+                'Let me know if you find it!',
+            ),
+        ],
+    )
+)
+print(prompt)
+"""
+You are a support agent for Acme Corp.
+
+- Be concise and helpful
+- Link to docs when relevant
+- If unsure, escalate — don't guess
+
+Follow the patterns shown in these examples:
+
+<examples label="good">
+<user>
+How do I reset my password?
+</user>
+<assistant>
+Go to Settings → Security → Reset Password. You'll get a confirmation email within 2 minutes.
+Docs: https://docs.acme.com/password-reset
+</assistant>
+</examples>
+
+<examples label="bad — avoid these patterns">
+<user>
+How do I reset my password?
+</user>
+<assistant>
+I'm not sure, maybe check the settings page? Let me know if you find it!
+</assistant>
+</examples>
+"""
+```
+
+The template references `company`, `guidelines`, `dos`, `donts`, `role`, and `content` — all
+validated against `AgentConfig`'s schema at compile time. A typo like `{{guidlines}}` raises
+`TemplateSchemaError` immediately:
+
+```python {title="agent_config_error.py" requires="agent_config.py"}
+from agent_config import AgentConfig
+
+from pydantic_handlebars import TemplateSchemaError, compile
+
+try:
+    compile('Hello {{guidlines}}!', AgentConfig)  # typo!
+except TemplateSchemaError as e:
+    print(e)
+    """
+    1 error(s) found:
+      - guidlines: Field 'guidlines' not found in schema
+    """
+```
+
+For user-provided templates where you want to check for errors without raising, use
+`check_template_compatibility` instead — it returns a result object with `is_compatible` and
+`issues`:
+
+```python {title="agent_config_check.py" requires="agent_config.py"}
+from agent_config import AgentConfig
+from pydantic import TypeAdapter
+
+from pydantic_handlebars import check_template_compatibility
+
+schema = TypeAdapter(AgentConfig).json_schema(mode='serialization')
+result = check_template_compatibility('Hello {{guidlines}}!', schema)
+print(result.is_compatible)
+#> False
+print(result.issues)
+"""
+[
+    TemplateIssue(
+        severity='error', message="Field 'guidlines' not found in schema", field_path='guidlines', template_index=0
+    )
+]
+"""
 ```
 
 ## Type-Safe Templates
@@ -331,7 +487,7 @@ serialization via Pydantic's `dump_python(mode='json')`.
 - Subexpressions: `{{helper (other arg)}}`
 - Hash arguments: `{{helper key=value}}`
 - Raw blocks: `{{{{raw}}}}...{{{{/raw}}}}`
-- HTML escaping: `{{escaped}}` vs `{{{unescaped}}}`
+- HTML escaping (opt-in): `{{escaped}}` vs `{{{unescaped}}}`
 - Whitespace control: `{{~expression~}}`
 - `@data` variables: `@root`, `@index`, `@key`, `@first`, `@last`
 - Block parameters: `{{#each items as |item index|}}`
@@ -414,23 +570,24 @@ print(template.render(User(name='world')))
 
 ### HTML escaping
 
-By default, `{{expression}}` output is HTML-escaped, matching Handlebars.js behavior. For non-HTML
-use cases like prompt generation, disable escaping:
+HTML escaping is **disabled by default** (`auto_escape=False`). This library is designed for prompt
+generation and other non-HTML use cases where escaping `<`, `>`, `&`, etc. would corrupt the output.
+
+> **Warning:** If you use this library to render **HTML that will be displayed in a browser**, you
+> **must** enable `auto_escape=True` to prevent cross-site scripting (XSS) vulnerabilities.
+
+To enable escaping, create an environment with `auto_escape=True`:
 
 ```python
 from pydantic_handlebars import HandlebarsEnvironment
 
-env = HandlebarsEnvironment(auto_escape=False)
+env = HandlebarsEnvironment(auto_escape=True)
 print(env.render('{{content}}', {'content': '<b>bold</b>'}))
-#> <b>bold</b>
+#> &lt;b&gt;bold&lt;/b&gt;
 ```
 
 Triple-stache `{{{expression}}}` always outputs unescaped content regardless of the `auto_escape`
 setting.
-
-> **Note:** The module-level `render()` and `compile()` functions use a default environment with
-> `auto_escape=True`. To disable escaping, create a `HandlebarsEnvironment(auto_escape=False)` and
-> use its `render()` method, or pass it to `typed_compiler()`.
 
 ### Unlisted field strictness
 

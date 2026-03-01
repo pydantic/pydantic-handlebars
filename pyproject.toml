@@ -5,7 +5,7 @@ build-backend = 'hatchling.build'
 [project]
 name = 'pydantic-handlebars'
 version = '0.1.0'
-description = 'Pure Python implementation of the Handlebars template language'
+description = 'Handlebars template engine for composing LLM prompts, built on Pydantic'
 readme = 'README.md'
 requires-python = '>=3.10'
 license = 'MIT'

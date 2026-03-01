@@ -31,7 +31,7 @@ def test_json_array(env: HandlebarsEnvironment):
 
 def test_json_string(env: HandlebarsEnvironment):
     result = env.render('{{json val}}', {'val': 'hello'})
-    assert result == '&quot;hello&quot;'
+    assert result == '"hello"'
 
 
 def test_json_string_unescaped(env: HandlebarsEnvironment):

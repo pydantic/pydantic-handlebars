@@ -57,16 +57,23 @@ def test_compile_no_context():
 
 
 def test_safe_string_in_context_serialized_to_str():
-    """SafeString in context is serialized to plain str, so it gets HTML-escaped.
+    """SafeString in context is serialized to plain str.
 
-    Use {{{triple}}} syntax for unescaped output instead.
+    With auto_escape=False (the default), output is unescaped regardless.
     """
     result = render('{{content}}', {'content': SafeString('<b>bold</b>')})
-    assert result == '&lt;b&gt;bold&lt;/b&gt;'
+    assert result == '<b>bold</b>'
 
-    # Triple-stache bypasses escaping
+    # Triple-stache also unescaped
     result = render('{{{content}}}', {'content': '<b>bold</b>'})
     assert result == '<b>bold</b>'
+
+
+def test_safe_string_with_auto_escape():
+    """With auto_escape=True, SafeString in context is serialized to plain str and escaped."""
+    env = HandlebarsEnvironment(auto_escape=True)
+    result = env.render('{{content}}', {'content': SafeString('<b>bold</b>')})
+    assert result == '&lt;b&gt;bold&lt;/b&gt;'
 
 
 def test_safe_string_is_str():
@@ -210,11 +217,11 @@ def test_deeply_nested_context():
 # --- auto_escape ---
 
 
-def test_auto_escape_default_true():
-    """Default auto_escape=True escapes HTML in {{expression}}."""
+def test_auto_escape_default_false():
+    """Default auto_escape=False does not escape HTML in {{expression}}."""
     env = HandlebarsEnvironment()
-    assert env.auto_escape is True
-    assert env.render('{{x}}', {'x': '<b>hi</b>'}) == '&lt;b&gt;hi&lt;/b&gt;'
+    assert env.auto_escape is False
+    assert env.render('{{x}}', {'x': '<b>hi</b>'}) == '<b>hi</b>'
 
 
 def test_auto_escape_false():

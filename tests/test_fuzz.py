@@ -15,6 +15,7 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 from pydantic_handlebars import (
+    HandlebarsEnvironment,
     HandlebarsError,
     HandlebarsParseError,
     SafeString,
@@ -270,7 +271,7 @@ def test_render_matches_compiled_render(template: str, ctx: dict[str, object]) -
 
 
 # ===========================================================================
-# 7. Security: HTML escaping is always applied in {{ }} context
+# 7. HTML escaping works when enabled (auto_escape=True)
 # ===========================================================================
 
 _html_payloads = st.sampled_from(
@@ -283,25 +284,35 @@ _html_payloads = st.sampled_from(
     ]
 )
 
+_escape_env = HandlebarsEnvironment(auto_escape=True)
+
 
 @given(payload=_html_payloads)
 @_base
-def test_html_always_escaped_in_double_mustache(payload: str) -> None:
-    """HTML special characters must always be escaped in {{expr}} output."""
-    result = render('{{val}}', {'val': payload})
+def test_html_escaped_when_auto_escape_enabled(payload: str) -> None:
+    """HTML special characters are escaped in {{expr}} output when auto_escape=True."""
+    result = _escape_env.render('{{val}}', {'val': payload})
     assert '<' not in result
     assert '>' not in result
 
 
 @given(value=st.text(min_size=1, max_size=100))
 @_base
-def test_double_mustache_never_contains_raw_angle_brackets(value: str) -> None:
-    """{{expr}} output should never contain literal < or > from the value."""
-    result = render('{{val}}', {'val': value})
+def test_double_mustache_no_raw_angle_brackets_when_auto_escape(value: str) -> None:
+    """{{expr}} output should not contain literal < or > when auto_escape=True."""
+    result = _escape_env.render('{{val}}', {'val': value})
     if '<' in value:
         assert '<' not in result
     if '>' in value:
         assert '>' not in result
+
+
+@given(value=st.text(min_size=1, max_size=100))
+@_base
+def test_double_mustache_preserves_content_by_default(value: str) -> None:
+    """{{expr}} output preserves raw content when auto_escape=False (default)."""
+    result = render('{{val}}', {'val': value})
+    assert result == value
 
 
 @given(value=st.text(min_size=1, max_size=100))
@@ -418,14 +429,23 @@ def test_comments_never_appear_in_output(comment_text: str) -> None:
 @given(html=st.text(min_size=1, max_size=100))
 @_base
 def test_safestring_serialized_to_str(html: str) -> None:
-    """SafeString in context is serialized to plain str, so it gets HTML-escaped."""
+    """SafeString in context is serialized to plain str.
+
+    With auto_escape=False (default), the content renders as-is.
+    With auto_escape=True, the serialized str gets HTML-escaped.
+    """
     safe = SafeString(html)
+
+    # Default (auto_escape=False): no escaping
     result = render('{{val}}', {'val': safe})
-    # SafeString is serialized to plain str, so < and > get escaped
+    assert result == html
+
+    # Explicit auto_escape=True: serialized to str, so escaping applies
+    result_escaped = _escape_env.render('{{val}}', {'val': safe})
     if '<' in html:
-        assert '<' not in result
+        assert '<' not in result_escaped
     if '>' in html:
-        assert '>' not in result
+        assert '>' not in result_escaped
 
 
 # ===========================================================================

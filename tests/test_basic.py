@@ -61,7 +61,8 @@ def test_false_and_zero_are_not_empty():
 
 
 def test_escaping_expressions():
-    assert render('{{awesome}}', {'awesome': "&'\\<>"}) == '&amp;&#x27;\\&lt;&gt;'
+    env = HandlebarsEnvironment(auto_escape=True)
+    assert env.render('{{awesome}}', {'awesome': "&'\\<>"}) == '&amp;&#x27;\\&lt;&gt;'
 
 
 def test_triple_stache():

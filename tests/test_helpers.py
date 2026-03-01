@@ -57,8 +57,14 @@ def test_helper_with_mixed_args_and_hash():
 # --- Helper escaping ---
 
 
-def test_helper_output_is_escaped():
+def test_helper_output_not_escaped_by_default():
     env = HandlebarsEnvironment()
+    env.register_helper('html', lambda *args, **kw: '<b>bold</b>')
+    assert env.render('{{html}}', {}) == '<b>bold</b>'
+
+
+def test_helper_output_is_escaped_when_enabled():
+    env = HandlebarsEnvironment(auto_escape=True)
     env.register_helper('html', lambda *args, **kw: '<b>bold</b>')
     assert env.render('{{html}}', {}) == '&lt;b&gt;bold&lt;/b&gt;'
 
