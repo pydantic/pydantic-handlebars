@@ -45,7 +45,8 @@ print(template.render({'name': 'Bob'}))
 
 ## Type-Safe Templates
 
-The core feature of this library: validate that a template is compatible with a data type *before* rendering.
+Templates can be validated against a data type at compile time, catching typos, missing fields, and
+structural mismatches before any data is rendered.
 
 ```python
 from pydantic import BaseModel
@@ -153,10 +154,12 @@ except HandlebarsParseError as e:
 - Raw blocks: `{{{{raw}}}}...{{{{/raw}}}}`
 - Security: context data serialized to JSON-safe types, depth limits enforced
 
-## What's Not Included
+## What's Not (Yet) Included
 
-- Partials (`{{> partial}}`)
+If any of these features would be useful to you, please
+[open an issue](https://github.com/pydantic/pydantic-handlebars/issues) and let us know.
+
+- Partials and inline partials (`{{> partial}}`, `{{#*inline}}`)
+- Strict mode (error on missing variables instead of empty string)
 - Decorators
-- Inline partials
-- Strict mode
 - Precompilation

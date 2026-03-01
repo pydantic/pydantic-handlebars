@@ -41,7 +41,8 @@ print(render('{{#if show}}yes{{else}}no{{/if}}', {'show': True}))
 
 ## Type-Safe Templates
 
-The core feature of this library: validate that a template is compatible with a data type *before* rendering.
+Templates can be validated against a data type at compile time, catching typos, missing fields, and
+structural mismatches before any data is rendered.
 
 ### Compile with a type
 
@@ -503,16 +504,25 @@ pydantic-handlebars is designed to safely render untrusted templates:
   `check_template_compatibility` to catch field reference errors before rendering, especially when
   templates come from external sources.
 
-## Future Directions
+## What's Not (Yet) Implemented
 
-- **[Monty](https://github.com/pydantic/monty) integration** — Given the recommendation to operate
-  on pre-serialized data, Monty (Pydantic's restricted Python runtime) could provide an additional
-  sandboxed execution layer for template rendering.
-- **Non-primitive rendering detection** — Warning when a `{{expression}}` would render a complex
-  object type (e.g., a dict or nested model) rather than a string or primitive, which is usually a
-  bug.
-- **Conditional type checking** — Warning when `#if` is used on a field whose type is guaranteed to
-  be truthy (e.g., a required object with properties), which likely indicates a logic error.
+If any of these features would be useful to you, please
+[open an issue](https://github.com/pydantic/pydantic-handlebars/issues) and let us know.
+
+- **Strict mode** — A `strict: bool` option that throws `HandlebarsRuntimeError` on missing
+  variables instead of silently rendering empty strings. Complements compile-time schema validation
+  with runtime enforcement.
+- **Partials** — `{{> partialName}}` for template composition. Out-of-line partials registered on
+  the environment (schema-opaque at check time), and inline partials
+  (`{{#*inline "name"}}...{{/inline}}`) that *are* schema-checked since their body is visible. An
+  `allow_partials` flag to optionally disallow partial syntax.
+- **Error messages with source context** — Show the relevant template snippet with a caret pointing
+  to the problematic expression. Most of the infrastructure (token positions, source access) is
+  already in place.
+- **Non-primitive rendering detection** — Warning when `{{expression}}` would render a complex
+  object (dict, nested model) rather than a primitive.
+- **Conditional type checking** — Warning when `#if` is used on a field whose type is guaranteed
+  truthy.
 
 ## License
 
