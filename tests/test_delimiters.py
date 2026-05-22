@@ -159,6 +159,27 @@ def test_default_delims_still_support_raw_blocks():
 
 
 # ---------------------------------------------------------------------------
+# Per-expression escape opt-out via the `&` variant works under custom delims.
+# Triple-stache has no analogue, but `@{&name}@` does.
+# ---------------------------------------------------------------------------
+
+
+def test_amp_unescape_under_custom_delims():
+    # With auto_escape on, the default form escapes...
+    env = HandlebarsEnvironment(auto_escape=True, open_delim='@{', close_delim='}@')
+    unsafe = {'value': '<script>X</script>'}
+    assert env.render('@{value}@', unsafe) == '&lt;script&gt;X&lt;/script&gt;'
+    # ...but the ampersand-unescape variant lets a single expression opt out:
+    assert env.render('@{&value}@', unsafe) == '<script>X</script>'
+
+
+def test_amp_unescape_under_default_delims_still_works():
+    # Regression guard: the parser fix used to hard-code `'{{&'`.
+    env = HandlebarsEnvironment(auto_escape=True)
+    assert env.render('{{&value}}', {'value': '<x>'}) == '<x>'
+
+
+# ---------------------------------------------------------------------------
 # Escape sequence under custom delimiters
 # ---------------------------------------------------------------------------
 

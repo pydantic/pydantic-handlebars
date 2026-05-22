@@ -179,7 +179,11 @@ class _Parser:
     def _parse_mustache(self) -> MustacheStatement:
         """Parse a mustache expression: {{ ... }}."""
         open_token = self._advance()  # consume OPEN
-        is_unescaped_amp = open_token.value == '{{&'
+        # The ampersand-unescape variant (`{{&name}}` / `@{&name}@` / …) is
+        # tokenized as an `OPEN` whose value is the open delimiter plus `&`.
+        # Detect that by suffix rather than the literal `'{{&'` so custom
+        # delimiter pairs work the same way.
+        is_unescaped_amp = open_token.value.endswith('&')
 
         open_strip = self._consume_strip()
         expr = self._parse_expression_with_params()
