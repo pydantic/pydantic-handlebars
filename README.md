@@ -636,6 +636,95 @@ print(result.is_compatible)
 #> True
 ```
 
+### Strict mode
+
+Pass `strict=True` to fail loudly when a template references a path that does not exist on the
+context, instead of silently rendering as the empty string:
+
+```python
+from pydantic_handlebars import HandlebarsRuntimeError, render
+
+try:
+    render('Hello {{name}}!', {}, strict=True)
+except HandlebarsRuntimeError as e:
+    print(e)
+    #> Strict mode: 'name' references missing context key 'name'
+```
+
+Strict mode treats *missing* keys as errors but lets explicit `None` values through (so
+`{'name': None}` still renders as `Hello !`). It applies to block-helper arguments
+(`{{#if missing}}`) and `@data` variables (`{{@nope}}`) the same way it applies to direct lookups —
+helper *names*, block params bound by `as |name|`, and `{{this}}` are unaffected.
+
+Strict mode can also be set at the environment level: `HandlebarsEnvironment(strict=True)`.
+
+### Static dependency extraction
+
+`extract_dependencies` statically returns the set of top-level context fields a template depends
+on — no rendering required:
+
+```python
+from pydantic_handlebars import extract_dependencies
+
+extract_dependencies('Hello {{user_name}}!')
+#> {'user_name'}
+
+extract_dependencies('{{user.name}} <{{user.email}}>')
+#> {'user'}
+
+extract_dependencies('{{#each items}}{{name}}{{/each}}')
+#> {'items'}
+
+extract_dependencies('{{#each items}}{{../top}}{{/each}}')
+#> {'items', 'top'}
+
+extract_dependencies('{{#each items as |item|}}{{item.name}}{{/each}}')
+#> {'items'}
+```
+
+The walker is scope-aware: `each` and `with` shift the context (their bodies' refs are not
+top-level deps), `if`/`unless` do not, block params shadow context lookups locally, `../` walks the
+scope chain back through opaque blocks, and `@root.foo` jumps to the root context directly.
+
+Standard helpers (`if`, `unless`, `each`, `with`, `lookup`, `log`) are recognised by default; pass
+`include_extra_helpers=True` or `helpers={...}` to extend the set.
+
+### Configurable delimiters
+
+`HandlebarsEnvironment`, `render`, `compile`, and `extract_dependencies` all accept `open_delim` and
+`close_delim` parameters (defaulting to `{{` / `}}`). Custom delimiter pairs let you run a
+rendering pass that consumes one set of placeholders without disturbing another set intended for a
+later pass:
+
+```python
+from pydantic_handlebars import render
+
+# Compose with @{...}@ — leaves the {{...}} placeholders for the next pass.
+after_composition = render(
+    'You are helping @{role}@. Greet {{user_name}}.',
+    {'role': 'a designer'},
+    open_delim='@{', close_delim='}@',
+)
+print(after_composition)
+#> You are helping a designer. Greet {{user_name}}.
+
+# Default pass picks up the remaining {{...}}.
+print(render(after_composition, {'user_name': 'Alice'}))
+#> You are helping a designer. Greet Alice.
+```
+
+All standard syntax works under custom delimiters: block helpers (`@{#if x}@…@{/if}@`),
+whitespace control (`@{~x~}@`), comments (`@{! … }@`, `@{!-- … --}@`), escape sequences
+(`\@{x}@` produces literal `@{x}@`), and the ampersand-unescape variant (`@{&x}@` opts out of
+HTML escaping when `auto_escape=True`).
+
+Triple-stache (`{{{...}}}`) and raw blocks (`{{{{...}}}}`) are only available with the default
+delimiters — they have no unambiguous extension for arbitrary pairs. Use `@{&x}@` for the
+per-expression escape opt-out, or set `auto_escape=False` on the environment.
+
+The public delimiter parameters reject empty, identical, whitespace-edged, and expression-syntax-
+conflicting (`"'()=|~`) pairs.
+
 ## Security
 
 ### Design principles
@@ -666,9 +755,6 @@ pydantic-handlebars is designed to safely render untrusted templates:
 If any of these features would be useful to you, please
 [open an issue](https://github.com/pydantic/pydantic-handlebars/issues) and let us know.
 
-- **Strict mode** — A `strict: bool` option that throws `HandlebarsRuntimeError` on missing
-  variables instead of silently rendering empty strings. Complements compile-time schema validation
-  with runtime enforcement.
 - **Partials** — `{{> partialName}}` for template composition. Out-of-line partials registered on
   the environment (schema-opaque at check time), and inline partials
   (`{{#*inline "name"}}...{{/inline}}`) that *are* schema-checked since their body is visible. An

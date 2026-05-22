@@ -108,6 +108,80 @@ print(result.issues[0].field_path)
 
 ::: pydantic_handlebars.check_template_compatibility
 
+### `extract_dependencies`
+
+Statically walk a template and return the set of top-level context field names it depends on. No
+rendering, no context required:
+
+```python
+from pydantic_handlebars import extract_dependencies
+
+extract_dependencies('{{greeting}}, {{user.name}}!')
+#> {'greeting', 'user'}
+
+# Scope-aware: `each` / `with` shift the context, so inner refs are not top-level deps.
+extract_dependencies('{{#each items}}{{name}}{{/each}}')
+#> {'items'}
+
+# `../` walks back to the top scope and contributes a top-level dep:
+extract_dependencies('{{#each items}}{{../top}}{{/each}}')
+#> {'items', 'top'}
+```
+
+::: pydantic_handlebars.extract_dependencies
+
+## Custom delimiters
+
+`HandlebarsEnvironment`, `render`, `compile`, and `extract_dependencies` all accept matching
+`open_delim` and `close_delim` keyword parameters (defaulting to `{{` and `}}`). Custom delimiter
+pairs let you embed a Handlebars rendering pass without disturbing a different set of placeholders
+intended for a later pass:
+
+```python
+from pydantic_handlebars import render
+
+# Compose with @{...}@ — leaves {{...}} literals untouched for the next pass.
+after_composition = render(
+    'You are helping @{role}@. Greet {{user_name}}.',
+    {'role': 'a designer'},
+    open_delim='@{', close_delim='}@',
+)
+print(after_composition)
+#> You are helping a designer. Greet {{user_name}}.
+
+print(render(after_composition, {'user_name': 'Alice'}))
+#> You are helping a designer. Greet Alice.
+```
+
+All standard syntax — block helpers, whitespace control, comments, escape sequences, and the
+ampersand-unescape variant — works under custom delimiters. Triple-stache (`{{{...}}}`) and raw
+blocks (`{{{{...}}}}`) are only available with the default delimiter pair; under custom delimiters
+use `@{&x}@` for per-expression escape opt-out, or `auto_escape=False` on the environment.
+
+The public delimiter parameters reject empty, identical, whitespace-edged, and expression-syntax-
+conflicting (`"'()=|~`) pairs.
+
+## Strict mode
+
+Pass `strict=True` to fail loudly when a template references a path that does not exist on the
+context, instead of silently rendering as the empty string:
+
+```python
+from pydantic_handlebars import HandlebarsRuntimeError, render
+
+try:
+    render('Hello {{name}}!', {}, strict=True)
+except HandlebarsRuntimeError as e:
+    print(e)
+    #> Strict mode: 'name' references missing context key 'name'
+```
+
+Strict mode treats *missing* keys as errors but lets explicit `None` values through. It applies to
+block-helper arguments (`{{#if missing}}`) and `@data` variables the same way it applies to direct
+lookups. Helper *names*, block params, and `{{this}}` are unaffected.
+
+Strict mode can also be set at the environment level: `HandlebarsEnvironment(strict=True)`.
+
 ## Classes
 
 ### `HandlebarsEnvironment`
