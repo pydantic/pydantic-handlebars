@@ -32,6 +32,11 @@ MAX_DEPTH = 100
 # Maximum output size (10MB default)
 MAX_OUTPUT_SIZE = 10 * 1024 * 1024
 
+# Sentinel returned by `_get_property` when the requested key/index does not
+# exist on the underlying container. Distinct from an explicit ``None`` value,
+# which is allowed even in strict mode.
+_MISSING: Any = object()
+
 
 class HelperOptions:
     """Options passed to helper functions.
@@ -139,6 +144,18 @@ class Scope:
             return self.parent.lookup_data(name)
         return None
 
+    def lookup_data_strict(self, name: str) -> tuple[Any, bool]:
+        """Look up a @data variable, returning ``(value, found)``.
+
+        The ``found`` flag lets strict-mode callers distinguish a missing key
+        from one whose explicit value is ``None``.
+        """
+        if name in self.data:
+            return self.data[name], True
+        if self.parent is not None:
+            return self.parent.lookup_data_strict(name)
+        return None, False
+
     def lookup_block_param(self, name: str) -> tuple[bool, Any]:
         """Look up a block parameter by name.
 
@@ -180,11 +197,13 @@ class Compiler:
         auto_escape: bool = False,
         max_depth: int = MAX_DEPTH,
         max_output_size: int = MAX_OUTPUT_SIZE,
+        strict: bool = False,
     ) -> None:
         self._helpers: dict[str, HelperFunc] = helpers or {}
         self._auto_escape = auto_escape
         self._max_depth = max_depth
         self._max_output_size = max_output_size
+        self._strict = strict
         self._depth = 0
         self._output_size = 0
 
@@ -478,6 +497,10 @@ class Compiler:
             if found:
                 for part in path.parts[1:]:
                     value = _get_property(value, part)
+                    if value is _MISSING:
+                        if self._strict:
+                            self._raise_missing(path, part)
+                        return None
                 return value
 
         # Get the starting context
@@ -491,9 +514,13 @@ class Compiler:
             return context
 
         # Resolve parts
-        value = context
+        value: Any = context
         for part in path.parts:
             value = _get_property(value, part)
+            if value is _MISSING:
+                if self._strict:
+                    self._raise_missing(path, part)
+                return None
             if value is None:
                 return None
 
@@ -505,32 +532,63 @@ class Compiler:
         if path.depth > 0:
             data = scope.get_parent_data(path.depth)
             if path.parts:
-                value: Any = data.get(path.parts[0])
+                value: Any = data.get(path.parts[0], _MISSING)
+                if value is _MISSING:
+                    if self._strict:
+                        self._raise_missing(path, path.parts[0])
+                    return None
                 for part in path.parts[1:]:
                     value = _get_property(value, part)
+                    if value is _MISSING:
+                        if self._strict:
+                            self._raise_missing(path, part)
+                        return None
                 return value
             return None
 
         if path.parts:
-            value = scope.lookup_data(path.parts[0])
+            value, found = scope.lookup_data_strict(path.parts[0])
+            if not found:
+                if self._strict:
+                    self._raise_missing(path, path.parts[0])
+                return None
             for part in path.parts[1:]:
                 value = _get_property(value, part)
+                if value is _MISSING:
+                    if self._strict:
+                        self._raise_missing(path, part)
+                    return None
             return value
         return None
 
+    def _raise_missing(self, path: PathExpression, missing_part: str) -> None:
+        """Raise a strict-mode error for a missing context lookup."""
+        prefix = '@' if path.data else ''
+        raise HandlebarsRuntimeError(
+            f'Strict mode: {prefix}{path.original!r} references missing context key {missing_part!r}'
+        )
+
 
 def _get_property(obj: Any, name: str) -> Any:
-    """Safely get a property from an object."""
+    """Safely get a property from an object, returning ``_MISSING`` if absent.
+
+    The sentinel distinguishes "no such key/index" from "key present, value is
+    ``None``". Non-strict callers should treat the sentinel as ``None``; strict
+    callers should raise.
+    """
+    if obj is None or obj is _MISSING:
+        return _MISSING
+
     if isinstance(obj, dict):
-        return cast('dict[str, Any]', obj).get(name)
+        return cast('dict[str, Any]', obj).get(name, _MISSING)
 
     if isinstance(obj, (list, tuple)):
         try:
             return cast('list[Any]', obj)[int(name)]
         except (ValueError, IndexError):
-            return None
+            return _MISSING
 
-    return None
+    return _MISSING
 
 
 def _get_strip_flags(stmt: Statement) -> tuple[bool, bool] | None:

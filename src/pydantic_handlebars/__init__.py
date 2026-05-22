@@ -15,6 +15,7 @@ from pydantic_handlebars._exceptions import (
     HandlebarsRuntimeError,
     TemplateSchemaError,
 )
+from pydantic_handlebars._extract import extract_dependencies
 from pydantic_handlebars._pydantic import CompiledTypedTemplate, TypedCompiler
 from pydantic_handlebars._schema import (
     CompatibilityResult,
@@ -46,6 +47,7 @@ __all__ = [
     'HelperOptions',
     'escape_expression',
     'check_template_compatibility',
+    'extract_dependencies',
     'CompatibilityResult',
     'TemplateIssue',
     'IssueSeverity',
@@ -55,7 +57,7 @@ __all__ = [
 _default_env = HandlebarsEnvironment()
 
 
-def render(source: str, context: dict[str, Any] | None = None) -> str:
+def render(source: str, context: dict[str, Any] | None = None, *, strict: bool = False) -> str:
     """Render a Handlebars template string with the given context.
 
     This is a convenience function that uses a default environment with
@@ -64,6 +66,11 @@ def render(source: str, context: dict[str, Any] | None = None) -> str:
     Args:
         source: The Handlebars template string.
         context: The data context for rendering.
+        strict: If ``True``, raise :class:`HandlebarsRuntimeError` when a
+            referenced path is not present on the context. An explicit
+            ``None`` value is still allowed. Defaults to ``False`` (missing
+            references render as empty strings, matching Handlebars.js
+            default behaviour).
 
     Returns:
         The rendered string.
@@ -74,6 +81,9 @@ def render(source: str, context: dict[str, Any] | None = None) -> str:
         assert result == 'Hello World!'
         ```
     """
+    if strict:
+        env = HandlebarsEnvironment(strict=True)
+        return env.render(source, context if context is not None else {})
     return _default_env.render(source, context if context is not None else {})
 
 

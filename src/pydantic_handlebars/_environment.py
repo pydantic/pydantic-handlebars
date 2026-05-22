@@ -59,6 +59,7 @@ class HandlebarsEnvironment:
         auto_escape: bool = False,
         max_depth: int = MAX_DEPTH,
         max_output_size: int = MAX_OUTPUT_SIZE,
+        strict: bool = False,
     ) -> None:
         self._helpers: dict[str, HelperFunc] = get_standard_helpers()
         if extra_helpers:
@@ -66,6 +67,18 @@ class HandlebarsEnvironment:
         self._auto_escape = auto_escape
         self._max_depth = max_depth
         self._max_output_size = max_output_size
+        self._strict = strict
+
+    @property
+    def strict(self) -> bool:
+        """Whether strict mode is enabled for templates rendered by this environment.
+
+        When ``True``, referencing a path that does not exist on the context
+        raises :class:`HandlebarsRuntimeError` instead of silently rendering
+        as an empty string. An explicit ``None`` value in the context is still
+        allowed — strict mode only fires for genuinely missing keys.
+        """
+        return self._strict
 
     @property
     def auto_escape(self) -> bool:
@@ -147,6 +160,7 @@ class HandlebarsEnvironment:
         auto_escape = self._auto_escape
         max_depth = self._max_depth
         max_output_size = self._max_output_size
+        strict = self._strict
 
         def template(context: Any = None) -> str:
             ctx: Any = context if context is not None else {}
@@ -155,6 +169,7 @@ class HandlebarsEnvironment:
                 auto_escape=auto_escape,
                 max_depth=max_depth,
                 max_output_size=max_output_size,
+                strict=strict,
             )
             return compiler.render(program, ctx)
 

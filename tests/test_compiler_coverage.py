@@ -19,7 +19,7 @@ from pydantic_handlebars import (
     HelperOptions,
     render,
 )
-from pydantic_handlebars._compiler import Compiler, Scope, _get_property, _noop_block
+from pydantic_handlebars._compiler import _MISSING, Compiler, Scope, _get_property, _noop_block
 from pydantic_handlebars._parser import parse
 
 # ---------------------------------------------------------------------------
@@ -105,6 +105,20 @@ class TestScopeLookupData:
     def test_lookup_data_returns_none_when_missing(self) -> None:
         scope = Scope({})
         assert scope.lookup_data('nonexistent') is None
+
+    def test_lookup_data_strict_falls_through_to_parent(self) -> None:
+        """Strict variant recurses through parent scopes for missing-key detection."""
+        parent = Scope({'root': True}, data={'custom': 42})
+        child = Scope({'child': True}, parent=parent)
+        value, found = child.lookup_data_strict('custom')
+        assert found is True
+        assert value == 42
+
+    def test_lookup_data_strict_returns_not_found_when_missing(self) -> None:
+        scope = Scope({})
+        value, found = scope.lookup_data_strict('nonexistent')
+        assert found is False
+        assert value is None
 
     def test_root_inherited_from_parent(self) -> None:
         """Line 109: root copied from parent when not already in data."""
@@ -596,32 +610,32 @@ class TestGetProperty:
 
     def test_list_invalid_index(self) -> None:
         """Line 544: ValueError when name is not an int."""
-        assert _get_property(['a', 'b'], 'not_a_number') is None
+        assert _get_property(['a', 'b'], 'not_a_number') is _MISSING
 
     def test_list_index_out_of_range(self) -> None:
         """Line 544: IndexError when index is out of range."""
-        assert _get_property(['a', 'b'], '99') is None
+        assert _get_property(['a', 'b'], '99') is _MISSING
 
     def test_tuple_index_access(self) -> None:
         """Line 541: tuple is also handled."""
         assert _get_property(('x', 'y', 'z'), '2') == 'z'
 
     def test_tuple_invalid_index(self) -> None:
-        assert _get_property(('x', 'y'), 'bad') is None
+        assert _get_property(('x', 'y'), 'bad') is _MISSING
 
     def test_non_dict_non_list_returns_none(self) -> None:
-        """Non-dict/list objects return None (no getattr fallback)."""
+        """Non-dict/list objects return the missing sentinel (no getattr fallback)."""
 
         class Obj:
             foo = 'bar'
 
-        assert _get_property(Obj(), 'foo') is None
+        assert _get_property(Obj(), 'foo') is _MISSING
 
     def test_dict_access(self) -> None:
         assert _get_property({'key': 'val'}, 'key') == 'val'
 
     def test_dict_missing_key(self) -> None:
-        assert _get_property({'key': 'val'}, 'other') is None
+        assert _get_property({'key': 'val'}, 'other') is _MISSING
 
     def test_dunder_key_accessible(self) -> None:
         assert _get_property({'__class__': 'ok'}, '__class__') == 'ok'
