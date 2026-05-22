@@ -36,18 +36,18 @@ class _ExtractScope:
 
     Mirrors the shape the renderer maintains at runtime: each scope has a
     parent, a set of block parameters that locally shadow context names, and
-    a flag indicating whether the scope shifted the context (``each`` / ``with``).
+    a flag indicating whether the scope shifted the context (`each` / `with`).
     """
 
     parent: _ExtractScope | None
     block_params: frozenset[str] = frozenset()
     is_opaque: bool = False
-    """``True`` when this scope sits inside ``{{#each}}`` / ``{{#with}}``.
+    """`True` when this scope sits inside `{{#each}}` / `{{#with}}`.
 
-    References at ``depth == 0`` inside an opaque scope are against the
+    References at `depth == 0` inside an opaque scope are against the
     shifted context (the iteration item or the new context), so they do not
     contribute to the *top-level* dependency set. Only references that walk
-    back up to the root through ``../`` count.
+    back up to the root through `../` count.
     """
 
 
@@ -98,8 +98,8 @@ class _Extractor:
 
     def _walk_block(self, stmt: BlockStatement, scope: _ExtractScope) -> None:
         # The parser only ever produces a PathExpression for a block's helper
-        # name (see ``_parse_block`` in ``_parser.py``). The ``BlockStatement
-        # .path`` field is typed loosely as ``Expression`` but a subexpression
+        # name (see `_parse_block` in `_parser.py`). The `BlockStatement
+        # .path` field is typed loosely as `Expression` but a subexpression
         # in that position is rejected at parse time, so we don't handle it
         # here.
         assert isinstance(stmt.path, PathExpression)
@@ -126,9 +126,9 @@ class _Extractor:
         )
         self._walk_program(stmt.body, body_scope)
         if stmt.inverse is not None:
-            # The inverse branch (``{{else}}``) renders against the *same*
+            # The inverse branch (`{{else}}`) renders against the *same*
             # context as the parent — context-shifting only applies to the
-            # main body of ``each`` / ``with``.
+            # main body of `each` / `with`.
             inverse_scope = _ExtractScope(
                 parent=scope,
                 block_params=frozenset(stmt.block_params),
@@ -158,7 +158,7 @@ class _Extractor:
     def _record_path_or_helper(self, path: PathExpression, scope: _ExtractScope, *, has_args: bool) -> None:
         """Record *path* as either a helper call (skip) or a context reference.
 
-        A bare ``{{name}}`` is ambiguous at parse time — it could be either a
+        A bare `{{name}}` is ambiguous at parse time — it could be either a
         helper with no arguments or a path lookup. The renderer resolves this
         by preferring the helper when one is registered AND the expression
         has arguments; otherwise it falls back to a path lookup. We follow
@@ -177,38 +177,38 @@ class _Extractor:
         self._record_path(path, scope)
 
     def _record_path(self, path: PathExpression, scope: _ExtractScope) -> None:
-        # ``@data`` variables (``@index``, ``@key``, ``@root``, …) do not
-        # name top-level context fields. The one exception is ``@root.x``,
-        # which explicitly reaches the root context — record ``x``.
+        # `@data` variables (`@index`, `@key`, `@root`, …) do not
+        # name top-level context fields. The one exception is `@root.x`,
+        # which explicitly reaches the root context — record `x`.
         if path.data:
             if path.parts and path.parts[0] == 'root' and len(path.parts) > 1:
                 self._deps.add(path.parts[1])
             return
 
         if path.is_this or not path.parts:
-            # ``{{this}}`` / ``{{.}}`` references the current context as a
+            # `{{this}}` / `{{.}}` references the current context as a
             # whole, not a named field.
             return
 
-        # Walk up the scope chain by ``depth`` to find which scope this
+        # Walk up the scope chain by `depth` to find which scope this
         # reference actually lands in. If we reach the root scope (parent is
         # None) and the scope was not opaque along the way, the reference is
         # a top-level dependency.
         target = scope
         for _ in range(path.depth):
             if target.parent is None:
-                # ``../`` past the root resolves to the root in the renderer
-                # (``get_parent_context`` returns ``None`` past root). Treat
+                # `../` past the root resolves to the root in the renderer
+                # (`get_parent_context` returns `None` past root). Treat
                 # the reference as still landing on the root context.
                 break
             target = target.parent
 
         first = path.parts[0]
         if first in target.block_params:
-            # Locally bound by ``as |name|`` — not a context dep.
+            # Locally bound by `as |name|` — not a context dep.
             return
         if target.is_opaque:
-            # Reference is against a context that ``each`` / ``with`` shifted
+            # Reference is against a context that `each` / `with` shifted
             # to. Without knowing the inner shape we cannot map this back to
             # a top-level field name.
             return
@@ -222,6 +222,8 @@ def extract_dependencies(
     *,
     helpers: set[str] | None = None,
     include_extra_helpers: bool = False,
+    open_delim: str = '{{',
+    close_delim: str = '}}',
 ) -> set[str]:
     """Return the set of top-level context field names *source* depends on.
 
@@ -234,16 +236,19 @@ def extract_dependencies(
         source: Handlebars template source.
         helpers: Names of additional helpers to recognise. Names registered
             as helpers are not treated as context references — for example,
-            ``{{format date}}`` records ``date`` as a dependency but not
-            ``format``.
-        include_extra_helpers: When ``True``, also treat the non-spec helpers
-            registered by ``HandlebarsEnvironment(extra_helpers=True)``
-            (``json``, ``uppercase``, ``eq``, …) as known helpers. Match this
+            `{{format date}}` records `date` as a dependency but not
+            `format`.
+        include_extra_helpers: When `True`, also treat the non-spec helpers
+            registered by `HandlebarsEnvironment(extra_helpers=True)`
+            (`json`, `uppercase`, `eq`, …) as known helpers. Match this
             to the environment you intend to render with.
+        open_delim: Open mustache delimiter. Defaults to `{{`. Pass the
+            same delimiters you'd render the template with.
+        close_delim: Close mustache delimiter. Defaults to `}}`.
 
     Returns:
         Set of top-level context field names referenced by the template.
-        Empty if the template only contains literal content, ``@data``
+        Empty if the template only contains literal content, `@data`
         variables, or references shadowed by block parameters.
 
     Raises:
@@ -264,5 +269,5 @@ def extract_dependencies(
     if helpers:
         known.update(helpers)
 
-    program = parse(source)
+    program = parse(source, open_delim=open_delim, close_delim=close_delim)
     return _Extractor(known).collect(program)

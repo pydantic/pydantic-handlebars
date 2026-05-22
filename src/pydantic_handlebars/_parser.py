@@ -27,16 +27,23 @@ from pydantic_handlebars._exceptions import HandlebarsParseError
 from pydantic_handlebars._tokenizer import Token, TokenType, tokenize
 
 
-def parse(source: str) -> Program:
+def parse(
+    source: str,
+    *,
+    open_delim: str = '{{',
+    close_delim: str = '}}',
+) -> Program:
     """Parse a Handlebars template string into an AST.
 
     Args:
         source: The template string to parse.
+        open_delim: Open mustache delimiter. Defaults to `{{`.
+        close_delim: Close mustache delimiter. Defaults to `}}`.
 
     Returns:
         The parsed AST as a Program node.
     """
-    tokens = tokenize(source)
+    tokens = tokenize(source, open_delim=open_delim, close_delim=close_delim)
     parser = _Parser(tokens, source)
     return parser.parse()
 
@@ -372,9 +379,9 @@ class _Parser:
     def _parse_inverse_chain(self) -> tuple[Program, StripFlags, StripFlags]:
         """Parse an inverse chain starting with {{^}}.
 
-        The open strip (from ``{{~^``) is now emitted as a STRIP token *before*
+        The open strip (from `{{~^`) is now emitted as a STRIP token *before*
         OPEN_INVERSE by the tokenizer, so consuming it here distinguishes
-        ``{{~^}}`` (open strip) from ``{{^~}}`` (close strip).
+        `{{~^}}` (open strip) from `{{^~}}` (close strip).
         """
         inv_strip_open = self._consume_strip()  # leading strip for {{~^
         self._advance()  # OPEN_INVERSE

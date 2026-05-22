@@ -1,4 +1,4 @@
-"""Tests for ``extract_dependencies``: static top-level context references."""
+"""Tests for `extract_dependencies`: static top-level context references."""
 
 from __future__ import annotations
 
@@ -73,7 +73,7 @@ def test_unless_behaves_like_if():
 
 
 # ---------------------------------------------------------------------------
-# ``each`` and ``with`` shift context — inner refs are scoped
+# `each` and `with` shift context — inner refs are scoped
 # ---------------------------------------------------------------------------
 
 
@@ -104,7 +104,7 @@ def test_nested_each_shifts_twice():
 
 
 def test_each_else_branch_renders_in_parent_context():
-    # ``{{else}}`` of ``each`` fires when the iterable is empty, so it
+    # `{{else}}` of `each` fires when the iterable is empty, so it
     # evaluates against the parent context — references there ARE top-level.
     template = '{{#each items}}x{{else}}{{empty_msg}}{{/each}}'
     assert extract_dependencies(template) == {'items', 'empty_msg'}
@@ -117,7 +117,7 @@ def test_each_else_branch_renders_in_parent_context():
 
 def test_each_block_params_shadow_top_level():
     template = '{{#each items as |item|}}{{item.name}}{{/each}}'
-    # ``item`` is a block param, not a top-level dep.
+    # `item` is a block param, not a top-level dep.
     assert extract_dependencies(template) == {'items'}
 
 
@@ -132,8 +132,8 @@ def test_each_block_params_with_index():
 
 
 def test_known_helper_name_is_not_a_dep():
-    # Standard helpers (``if``, ``unless``, ``each``, ``with``, ``lookup``,
-    # ``log``) are always recognised.
+    # Standard helpers (`if`, `unless`, `each`, `with`, `lookup`,
+    # `log`) are always recognised.
     assert extract_dependencies('{{lookup obj key}}') == {'obj', 'key'}
 
 
@@ -149,19 +149,19 @@ def test_explicit_helpers_argument_suppresses_helper_ref():
 
 
 def test_include_extra_helpers_recognises_uppercase():
-    # ``uppercase`` is in the extra-helpers set.
+    # `uppercase` is in the extra-helpers set.
     template = '{{uppercase name}}'
     assert extract_dependencies(template, include_extra_helpers=True) == {'name'}
 
 
 def test_extra_helpers_default_off_treats_uppercase_as_ref():
-    # Without opting in to extras, ``uppercase`` looks like a context name.
+    # Without opting in to extras, `uppercase` looks like a context name.
     template = '{{uppercase name}}'
     assert extract_dependencies(template) == {'uppercase', 'name'}
 
 
 def test_helper_with_no_args_is_bare_path_lookup():
-    # ``{{my_helper}}`` with no args is ambiguous; the renderer prefers a
+    # `{{my_helper}}` with no args is ambiguous; the renderer prefers a
     # path lookup, so we count it as a dep.
     assert extract_dependencies('{{my_helper}}', helpers={'my_helper'}) == {'my_helper'}
 
@@ -196,13 +196,13 @@ def test_root_field_is_top_level_dep():
 
 
 def test_root_alone_is_not_a_dep():
-    # ``{{@root}}`` on its own returns the root context as a value — we
+    # `{{@root}}` on its own returns the root context as a value — we
     # don't know any specific field that it depends on.
     assert extract_dependencies('{{@root}}') == set()
 
 
 # ---------------------------------------------------------------------------
-# ``this`` references
+# `this` references
 # ---------------------------------------------------------------------------
 
 
@@ -211,13 +211,13 @@ def test_this_alone_is_not_a_dep():
 
 
 def test_this_dot_field_is_a_dep():
-    # ``{{this.name}}`` is equivalent to ``{{name}}`` — both reference the
-    # current context's ``name`` field. At the top level, that's a dep.
-    # Use a defensive check: the parser may or may not put ``name`` in
-    # ``parts`` depending on how ``this.name`` parses.
+    # `{{this.name}}` is equivalent to `{{name}}` — both reference the
+    # current context's `name` field. At the top level, that's a dep.
+    # Use a defensive check: the parser may or may not put `name` in
+    # `parts` depending on how `this.name` parses.
     deps = extract_dependencies('{{this.name}}')
-    # The acceptable answers are ``{'name'}`` (if ``parts == ['name']``) or
-    # ``set()`` (if the parser absorbs ``this.name`` into a single this-token).
+    # The acceptable answers are `{'name'}` (if `parts == ['name']`) or
+    # `set()` (if the parser absorbs `this.name` into a single this-token).
     assert deps in ({'name'}, set())
 
 
@@ -253,7 +253,7 @@ def test_deps_align_with_render_inputs():
 
 
 def test_subexpression_as_mustache_path():
-    # ``{{(maybe-helper a)}}`` invokes the result of a subexpression — the
+    # `{{(maybe-helper a)}}` invokes the result of a subexpression — the
     # subexpression's args are deps even though the mustache "path" is a
     # SubExpression rather than a PathExpression.
     template = '{{(lookup helpers name) arg}}'
@@ -278,7 +278,7 @@ def test_subexpression_hash_arguments_are_deps():
 
 
 def test_parent_ref_past_root_lands_on_root():
-    # ``../`` past the top scope clamps to root (matching the renderer).
+    # `../` past the top scope clamps to root (matching the renderer).
     template = '{{../name}}'
     assert extract_dependencies(template) == {'name'}
 

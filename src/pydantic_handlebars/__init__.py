@@ -57,7 +57,14 @@ __all__ = [
 _default_env = HandlebarsEnvironment()
 
 
-def render(source: str, context: dict[str, Any] | None = None, *, strict: bool = False) -> str:
+def render(
+    source: str,
+    context: dict[str, Any] | None = None,
+    *,
+    strict: bool = False,
+    open_delim: str = '{{',
+    close_delim: str = '}}',
+) -> str:
     """Render a Handlebars template string with the given context.
 
     This is a convenience function that uses a default environment with
@@ -66,11 +73,15 @@ def render(source: str, context: dict[str, Any] | None = None, *, strict: bool =
     Args:
         source: The Handlebars template string.
         context: The data context for rendering.
-        strict: If ``True``, raise :class:`HandlebarsRuntimeError` when a
+        strict: If `True`, raise :class:`HandlebarsRuntimeError` when a
             referenced path is not present on the context. An explicit
-            ``None`` value is still allowed. Defaults to ``False`` (missing
+            `None` value is still allowed. Defaults to `False` (missing
             references render as empty strings, matching Handlebars.js
             default behaviour).
+        open_delim: Open mustache delimiter. Defaults to `{{`. Non-default
+            pairs let you embed Handlebars output that should preserve
+            `{{...}}`-shaped placeholders for a later rendering pass.
+        close_delim: Close mustache delimiter. Defaults to `}}`.
 
     Returns:
         The rendered string.
@@ -79,10 +90,15 @@ def render(source: str, context: dict[str, Any] | None = None, *, strict: bool =
         ```python
         result = render('Hello {{name}}!', {'name': 'World'})
         assert result == 'Hello World!'
+
+        # Non-default delimiters leave the literal `{{user}}` alone:
+        result = render('Hi @{name}@, see {{user}} later', {'name': 'A'},
+                       open_delim='@{', close_delim='}@')
+        assert result == 'Hi A, see {{user}} later'
         ```
     """
-    if strict:
-        env = HandlebarsEnvironment(strict=True)
+    if strict or open_delim != '{{' or close_delim != '}}':
+        env = HandlebarsEnvironment(strict=strict, open_delim=open_delim, close_delim=close_delim)
         return env.render(source, context if context is not None else {})
     return _default_env.render(source, context if context is not None else {})
 
@@ -102,18 +118,18 @@ def compile(
 ) -> CompiledTemplate | CompiledTypedTemplate[Any]:
     """Compile a Handlebars template string into a reusable callable.
 
-    When called with just a source string, returns a ``CompiledTemplate``.
+    When called with just a source string, returns a `CompiledTemplate`.
     When called with a source string and a type, validates the template against
-    the type's JSON schema and returns a ``CompiledTypedTemplate``.
+    the type's JSON schema and returns a `CompiledTypedTemplate`.
 
     Args:
         source: The Handlebars template string.
         tp: Optional Pydantic model type or any type supported by TypeAdapter.
         serialize_as_any: If True, serialize subclass fields instead of only
-            the declared type's fields. Only applies when ``tp`` is provided.
+            the declared type's fields. Only applies when `tp` is provided.
 
     Returns:
-        A ``CompiledTemplate`` or ``CompiledTypedTemplate`` callable.
+        A `CompiledTemplate` or `CompiledTypedTemplate` callable.
 
     Example:
         ```python
@@ -149,7 +165,7 @@ def typed_compiler(
             the declared type's fields.
 
     Returns:
-        A ``TypedCompiler`` instance.
+        A `TypedCompiler` instance.
     """
     return TypedCompiler(
         tp, env=env, optional_field_severity=optional_field_severity, serialize_as_any=serialize_as_any

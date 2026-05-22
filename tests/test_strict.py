@@ -37,7 +37,7 @@ def test_strict_raises_on_missing_top_level():
 
 
 def test_strict_allows_explicit_none():
-    # An explicit ``None`` value is distinct from "key not present" — strict
+    # An explicit `None` value is distinct from "key not present" — strict
     # mode lets it through, rendering as the empty string.
     assert render('Hello {{name}}!', {'name': None}, strict=True) == 'Hello !'
 
@@ -57,8 +57,8 @@ def test_strict_raises_on_missing_root_of_dotted_path():
 
 
 def test_strict_allows_explicit_none_intermediate_segment():
-    # Same rule as scalars: if the key is present but the value is ``None``,
-    # subsequent segments resolve to ``None`` and render as empty.
+    # Same rule as scalars: if the key is present but the value is `None`,
+    # subsequent segments resolve to `None` and render as empty.
     assert render('{{user.email}}', {'user': None}, strict=True) == ''
 
 
@@ -106,7 +106,7 @@ def test_strict_raises_on_each_with_missing_iterable():
 
 
 def test_strict_inside_each_uses_iteration_context():
-    # Strict checks inside ``each`` operate against each item, not the parent.
+    # Strict checks inside `each` operate against each item, not the parent.
     template = '{{#each items}}{{name}};{{/each}}'
     assert render(template, {'items': [{'name': 'a'}, {'name': 'b'}]}, strict=True) == 'a;b;'
 
@@ -134,7 +134,7 @@ def test_strict_block_params_raise_on_missing_inner_field():
 
 
 # ---------------------------------------------------------------------------
-# Data variables (``@index``, etc.) in strict mode
+# Data variables (`@index`, etc.) in strict mode
 # ---------------------------------------------------------------------------
 
 
@@ -154,8 +154,8 @@ def test_strict_raises_on_unknown_data_variable():
 
 
 def test_strict_does_not_apply_to_helper_names():
-    # ``if`` is a registered helper, not a context lookup, so it doesn't
-    # fire strict mode even though no field named ``if`` exists.
+    # `if` is a registered helper, not a context lookup, so it doesn't
+    # fire strict mode even though no field named `if` exists.
     assert render('{{#if value}}x{{/if}}', {'value': True}, strict=True) == 'x'
 
 
@@ -165,12 +165,12 @@ def test_strict_applies_to_helper_arguments():
 
 
 # ---------------------------------------------------------------------------
-# ``this`` and root context references
+# `this` and root context references
 # ---------------------------------------------------------------------------
 
 
 def test_strict_passes_for_this():
-    # ``{{this}}`` references the current context object as a whole; strict
+    # `{{this}}` references the current context object as a whole; strict
     # mode never fires on it.
     env = HandlebarsEnvironment(strict=True)
     assert env.render('{{this}}', 'hello') == 'hello'
@@ -189,18 +189,18 @@ def test_strict_raises_for_at_root_field_missing():
 
 
 # ---------------------------------------------------------------------------
-# @data parent references (``@../foo``) — strict + non-strict branches
+# @data parent references (`@../foo`) — strict + non-strict branches
 # ---------------------------------------------------------------------------
 
 
 def test_data_parent_lookup_recurses_through_scopes():
-    # Parent-data access (``@../first``): ``@first`` is set by ``each`` on
+    # Parent-data access (`@../first`): `@first` is set by `each` on
     # the inner scope, so a parent-data lookup at depth 1 from an inner
-    # ``each`` walks back to the outer ``each``'s data.
+    # `each` walks back to the outer `each`'s data.
     template = '{{#each outer}}{{#each inner}}{{@../first}};{{/each}}{{/each}}'
     result = render(template, {'outer': [{'inner': [1, 2]}, {'inner': [3]}]})
-    # ``@first`` of the outer each is True at iteration 0, False at 1.
-    # Handlebars renders Python bools as lowercase ``true``/``false``.
+    # `@first` of the outer each is True at iteration 0, False at 1.
+    # Handlebars renders Python bools as lowercase `true`/`false`.
     assert result == 'true;true;false;'
 
 
@@ -219,7 +219,7 @@ def test_data_parent_nested_segment_missing_raises_in_strict():
     # Set up a parent data variable that exists but doesn't have the nested
     # field being requested.
     env = HandlebarsEnvironment(strict=True)
-    # Hard to construct ``@parent.nested.missing`` from pure templates;
+    # Hard to construct `@parent.nested.missing` from pure templates;
     # exercise via a custom block helper that injects parent data.
     template = '{{#each items}}{{@../root.missing_field}};{{/each}}'
     with pytest.raises(HandlebarsRuntimeError, match="missing context key 'missing_field'"):
@@ -242,26 +242,26 @@ def test_block_param_dotted_missing_returns_empty_non_strict():
 
 
 # ---------------------------------------------------------------------------
-# Non-strict ``@data`` lookups inside nested scopes recurse to parent data
+# Non-strict `@data` lookups inside nested scopes recurse to parent data
 # ---------------------------------------------------------------------------
 
 
 def test_at_data_lookup_recurses_into_parent_scope_non_strict():
-    # Inside the inner ``each``, ``@first`` is not directly in inner.data
+    # Inside the inner `each`, `@first` is not directly in inner.data
     # for the parent's iteration — the lookup recurses through the scope
-    # chain. With the inner each at its own iteration, ``@first`` resolves
+    # chain. With the inner each at its own iteration, `@first` resolves
     # to the *inner* iteration's flag.
     template = '{{#each outer}}{{#each inner}}{{@first}};{{/each}}{{/each}}'
     assert render(template, {'outer': [{'inner': [1, 2]}, {'inner': [3]}]}) == 'true;false;true;'
 
 
 def test_at_data_missing_data_var_returns_empty_non_strict():
-    # Top-level ``{{@nope}}`` with no parent scope falls through both
-    # ``found=False`` branches and renders as empty.
+    # Top-level `{{@nope}}` with no parent scope falls through both
+    # `found=False` branches and renders as empty.
     assert render('[{{@nope}}]', {}) == '[]'
 
 
 def test_at_data_missing_data_var_with_nested_segment_non_strict():
-    # ``{{@root.nothing}}`` — ``@root`` exists, ``nothing`` doesn't.
+    # `{{@root.nothing}}` — `@root` exists, `nothing` doesn't.
     # Non-strict swallows the missing-segment lookup and renders empty.
     assert render('[{{@root.nothing}}]', {'present': 1}) == '[]'

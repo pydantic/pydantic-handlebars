@@ -1,6 +1,12 @@
 """Tokenizer for Handlebars templates.
 
 Converts a template string into a stream of tokens that the parser can consume.
+
+The tokenizer supports configurable open/close delimiters (defaulting to `{{`
+and `}}`). When non-default delimiters are used, triple-stache (`{{{...}}}`)
+and raw-block (`{{{{...}}}}`) features are disabled — those forms only have
+unambiguous extensions for the default delimiter pair and are rarely needed in
+the embedding scenarios that motivate configurable delimiters.
 """
 
 from __future__ import annotations
@@ -9,6 +15,9 @@ from dataclasses import dataclass
 from enum import Enum, auto
 
 from pydantic_handlebars._exceptions import HandlebarsParseError
+
+DEFAULT_OPEN_DELIM = '{{'
+DEFAULT_CLOSE_DELIM = '}}'
 
 
 class TokenType(Enum):
@@ -79,23 +88,146 @@ class Token:
     column: int
 
 
-def tokenize(source: str) -> list[Token]:
+@dataclass(frozen=True, slots=True)
+class _Delimiters:
+    r"""Pre-computed delimiter strings for the tokenizer.
+
+    All delimiter-derived literals (`{{#`, `{{/`, `\{{`, `~}}`, …)
+    are computed once at construction so the tokenizer's hot path doesn't
+    re-concatenate them per token.
+    """
+
+    open: str
+    """The open delimiter, e.g. `{{` or `@{`."""
+    close: str
+    """The close delimiter, e.g. `}}` or `}@`."""
+    open_block: str
+    open_endblock: str
+    open_inverse: str
+    open_partial: str
+    open_unescape_amp: str
+    """Open + `&` — the legacy unescaped variant (`{{&foo}}`)."""
+    open_comment: str
+    escape: str
+    r"""`\` + open — the escape sequence that produces literal delimiters."""
+    strip_open: str
+    """Open + `~` — open-strip whitespace control."""
+    strip_close: str
+    """`~` + close — close-strip whitespace control."""
+    close_long_comment: str
+    """`--` + close — closing tag of a long `{{!-- … --}}` comment."""
+    close_long_comment_strip: str
+    """`--~` + close — long-comment close with close-strip."""
+    triple_open: str | None
+    """Open + `{` (only enabled for the default `{{` open delimiter)."""
+    triple_close: str | None
+    triple_strip_close: str | None
+    raw_open: str | None
+    """Open + open (only enabled for the default delimiters)."""
+    raw_close: str | None
+    end_raw_block_prefix: str | None
+    """Raw-open + `/` — the start of a raw block end tag."""
+    close_first_char: str
+    """First char of the close delimiter — used to detect end-of-expression
+    inside a mustache body without committing to consuming the full close."""
+
+
+def _validate_delimiters(open_delim: str, close_delim: str) -> None:
+    """Reject delimiter choices that would confuse the tokenizer or parser.
+
+    The constraints are conservative — they cover the cases where the tokenizer
+    could not unambiguously distinguish a delimiter boundary from the inner
+    expression syntax. In particular:
+
+    * Empty or identical open/close cannot be tokenised.
+    * A whitespace-prefixed open / suffixed close is ambiguous because the
+      tokenizer skips whitespace inside expressions when looking for the close.
+    * Characters that are syntactically meaningful inside an expression body
+      (string quotes, parentheses, `=`, `|`) cannot appear in either
+      delimiter without making expressions un-parsable.
+    * `~` cannot appear in either delimiter because it is the whitespace-
+      control marker (`{{~` / `~}}` etc.).
+    """
+    if not open_delim or not close_delim:
+        raise ValueError('open_delim and close_delim must be non-empty')
+    if open_delim == close_delim:
+        raise ValueError('open_delim and close_delim must differ')
+    if open_delim[0].isspace() or close_delim[-1].isspace():
+        raise ValueError('open_delim must not start with whitespace and close_delim must not end with whitespace')
+    forbidden = set('"\'()=|~')
+    bad_open = forbidden & set(open_delim)
+    if bad_open:
+        raise ValueError(f'open_delim must not contain any of {"".join(sorted(forbidden))!r}; got {open_delim!r}')
+    bad_close = forbidden & set(close_delim)
+    if bad_close:
+        raise ValueError(f'close_delim must not contain any of {"".join(sorted(forbidden))!r}; got {close_delim!r}')
+
+
+def _make_delimiters(open_delim: str, close_delim: str) -> _Delimiters:
+    """Build a `_Delimiters` config from raw open/close strings."""
+    _validate_delimiters(open_delim, close_delim)
+    is_default = open_delim == DEFAULT_OPEN_DELIM and close_delim == DEFAULT_CLOSE_DELIM
+    triple_open = DEFAULT_OPEN_DELIM + '{' if is_default else None  # i.e. '{{{'
+    triple_close = '}' + DEFAULT_CLOSE_DELIM if is_default else None  # i.e. '}}}'
+    triple_strip_close = '~' + triple_close if triple_close is not None else None
+    raw_open = DEFAULT_OPEN_DELIM + DEFAULT_OPEN_DELIM if is_default else None  # i.e. '{{{{'
+    raw_close = DEFAULT_CLOSE_DELIM + DEFAULT_CLOSE_DELIM if is_default else None
+    end_raw_block_prefix = raw_open + '/' if raw_open is not None else None
+    return _Delimiters(
+        open=open_delim,
+        close=close_delim,
+        open_block=open_delim + '#',
+        open_endblock=open_delim + '/',
+        open_inverse=open_delim + '^',
+        open_partial=open_delim + '>',
+        open_unescape_amp=open_delim + '&',
+        open_comment=open_delim + '!',
+        escape='\\' + open_delim,
+        strip_open=open_delim + '~',
+        strip_close='~' + close_delim,
+        close_long_comment='--' + close_delim,
+        close_long_comment_strip='--~' + close_delim,
+        triple_open=triple_open,
+        triple_close=triple_close,
+        triple_strip_close=triple_strip_close,
+        raw_open=raw_open,
+        raw_close=raw_close,
+        end_raw_block_prefix=end_raw_block_prefix,
+        close_first_char=close_delim[0],
+    )
+
+
+def tokenize(
+    source: str,
+    *,
+    open_delim: str = DEFAULT_OPEN_DELIM,
+    close_delim: str = DEFAULT_CLOSE_DELIM,
+) -> list[Token]:
     """Tokenize a Handlebars template string.
 
     Args:
         source: The template string to tokenize.
+        open_delim: The opening mustache delimiter. Defaults to `{{`.
+        close_delim: The closing mustache delimiter. Defaults to `}}`.
 
     Returns:
         A list of tokens.
+
+    Raises:
+        ValueError: If the delimiter pair is invalid (empty, identical,
+            whitespace-prefixed/suffixed, or contains characters reserved
+            for expression syntax).
+        HandlebarsParseError: If the template has a tokenizer-level error.
     """
-    return _TemplateTokenizer(source).tokenize()
+    return _TemplateTokenizer(source, _make_delimiters(open_delim, close_delim)).tokenize()
 
 
 class _TemplateTokenizer:
     """Tokenizes a Handlebars template string into a sequence of tokens."""
 
-    def __init__(self, source: str) -> None:
+    def __init__(self, source: str, delims: _Delimiters) -> None:
         self._source = source
+        self._delims = delims
         self._pos = 0
         self._line = 1
         self._column = 1
@@ -133,31 +265,37 @@ class _TemplateTokenizer:
 
     def _read_next(self) -> None:
         """Read the next token(s) from the source."""
-        # Check for escaped mustache
-        if self._starts_with('\\{{'):
+        d = self._delims
+        # Check for escaped mustache: `\<open>` produces literal open text.
+        if self._starts_with(d.escape):
             line, col = self._line, self._column
             self._advance(1)  # skip backslash
-            content = self._advance(2)
+            content = self._advance(len(d.open))
             # Continue reading content
             more: list[str] = []
             while self._pos < len(self._source):
-                if self._starts_with('\\{{'):
+                if self._starts_with(d.escape):
                     self._advance(1)
-                    more.append(self._advance(2))
+                    more.append(self._advance(len(d.open)))
                     continue
-                if self._starts_with('{{'):
+                if self._starts_with(d.open):
                     break
                 more.append(self._advance())
             self._emit(TokenType.CONTENT, content + ''.join(more), line, col)
             return
 
-        # Check for raw block: {{{{
-        if self._starts_with('{{{{') and not self._starts_with('{{{{/'):
+        # Check for raw block (only with default delims): {{{{
+        if (
+            d.raw_open is not None
+            and d.end_raw_block_prefix is not None
+            and self._starts_with(d.raw_open)
+            and not self._starts_with(d.end_raw_block_prefix)
+        ):
             self._read_raw_block()
             return
 
         # Check for mustache open
-        if self._starts_with('{{'):
+        if self._starts_with(d.open):
             self._read_mustache()
             return
 
@@ -166,15 +304,16 @@ class _TemplateTokenizer:
 
     def _read_content(self) -> None:
         """Read plain text content."""
+        d = self._delims
         line, col = self._line, self._column
         content: list[str] = []
 
         while self._pos < len(self._source):
-            if self._starts_with('\\{{'):
+            if self._starts_with(d.escape):
                 self._advance(1)
-                content.append(self._advance(2))
+                content.append(self._advance(len(d.open)))
                 continue
-            if self._starts_with('{{'):
+            if self._starts_with(d.open):
                 break
             content.append(self._advance())
 
@@ -182,28 +321,37 @@ class _TemplateTokenizer:
             self._emit(TokenType.CONTENT, ''.join(content), line, col)
 
     def _read_mustache(self) -> None:
-        """Read a mustache tag ({{ ... }})."""
+        """Read a mustache tag (open ... close)."""
+        d = self._delims
         line, col = self._line, self._column
 
-        # Triple-stache (unescaped): {{{
-        if self._starts_with('{{{') and not self._starts_with('{{{{'):
-            self._advance(3)
+        # Triple-stache (unescaped): only available with default delims.
+        if (
+            d.triple_open is not None
+            and self._starts_with(d.triple_open)
+            # `{{{{` is raw-block-open, not triple-stache; the raw-block
+            # branch handles it first, but we still need to avoid mis-reading
+            # it here if the caller invoked _read_mustache directly.
+            and not (d.raw_open is not None and self._starts_with(d.raw_open))
+        ):
+            self._advance(len(d.triple_open))
             if self._peek() == '~':
                 strip_l, strip_c = self._line, self._column
                 self._advance()
-                self._emit(TokenType.OPEN_UNESCAPED, '{{{', line, col)
+                self._emit(TokenType.OPEN_UNESCAPED, d.triple_open, line, col)
                 self._emit(TokenType.STRIP, '~', strip_l, strip_c)
             else:
-                self._emit(TokenType.OPEN_UNESCAPED, '{{{', line, col)
+                self._emit(TokenType.OPEN_UNESCAPED, d.triple_open, line, col)
             self._read_mustache_body(close_unescaped=True)
             return
 
-        # Regular {{
-        self._advance(2)
+        # Regular open
+        self._advance(len(d.open))
         self._read_regular_mustache(line, col)
 
     def _read_regular_mustache(self, line: int, col: int) -> None:
-        """Read a regular mustache tag after consuming {{."""
+        """Read a regular mustache tag after consuming the open delim."""
+        d = self._delims
         open_strip = False
         if self._peek() == '~':
             open_strip = True
@@ -215,13 +363,15 @@ class _TemplateTokenizer:
             self._read_comment(line, col, open_strip)
             return
 
-        # Map special characters to their token types
+        # Map special characters to their token types. The emitted `value`
+        # is the *original* delim-with-suffix string (so error messages and
+        # round-trips reflect the actual source delimiter pair).
         special_map: dict[str, tuple[TokenType, str]] = {
-            '#': (TokenType.OPEN_BLOCK, '{{#'),
-            '/': (TokenType.OPEN_ENDBLOCK, '{{/'),
-            '^': (TokenType.OPEN_INVERSE, '{{^'),
-            '&': (TokenType.OPEN, '{{&'),
-            '>': (TokenType.OPEN_PARTIAL, '{{>'),
+            '#': (TokenType.OPEN_BLOCK, d.open_block),
+            '/': (TokenType.OPEN_ENDBLOCK, d.open_endblock),
+            '^': (TokenType.OPEN_INVERSE, d.open_inverse),
+            '&': (TokenType.OPEN, d.open_unescape_amp),
+            '>': (TokenType.OPEN_PARTIAL, d.open_partial),
         }
 
         if next_ch in special_map:
@@ -229,25 +379,27 @@ class _TemplateTokenizer:
             token_type, value = special_map[next_ch]
             if open_strip and next_ch == '^':
                 # For ^, emit STRIP before OPEN_INVERSE so the parser can
-                # distinguish {{~^}} (open strip) from {{^~}} (close strip).
-                # Other special chars always have content separating the strips.
-                self._emit(TokenType.STRIP, '~', line, col + 2)
+                # distinguish open-strip from close-strip on the inverse
+                # tag — other special chars always have content separating
+                # the two strip positions.
+                self._emit(TokenType.STRIP, '~', line, col + len(d.open))
                 self._emit(token_type, value, line, col)
             else:
                 self._emit(token_type, value, line, col)
                 if open_strip:
-                    self._emit(TokenType.STRIP, '~', line, col + 2)
+                    self._emit(TokenType.STRIP, '~', line, col + len(d.open))
             self._read_mustache_body()
             return
 
         # Regular open
-        self._emit(TokenType.OPEN, '{{', line, col)
+        self._emit(TokenType.OPEN, d.open, line, col)
         if open_strip:
-            self._emit(TokenType.STRIP, '~', line, col + 2)
+            self._emit(TokenType.STRIP, '~', line, col + len(d.open))
         self._read_mustache_body()
 
     def _read_comment(self, open_line: int, open_col: int, open_strip: bool) -> None:
         """Read a comment tag, emitting strip markers for whitespace control."""
+        d = self._delims
         self._advance()  # consume !
 
         long_comment = self._starts_with('--')
@@ -258,92 +410,99 @@ class _TemplateTokenizer:
 
         if long_comment:
             while self._pos < len(self._source):
-                if self._starts_with('--~}}'):
+                if self._starts_with(d.close_long_comment_strip):
                     self._advance(2)  # consume --
                     if open_strip:
-                        self._emit(TokenType.STRIP, '~', open_line, open_col + 2)
+                        self._emit(TokenType.STRIP, '~', open_line, open_col + len(d.open))
                     self._emit(TokenType.COMMENT, ''.join(comment_parts), open_line, open_col)
                     strip_l, strip_c = self._line, self._column
                     self._advance(1)  # consume ~
                     self._emit(TokenType.STRIP, '~', strip_l, strip_c)
-                    self._advance(2)  # consume }}
+                    self._advance(len(d.close))  # consume close
                     return
-                if self._starts_with('--}}'):
+                if self._starts_with(d.close_long_comment):
                     self._advance(2)  # consume --
                     if open_strip:
-                        self._emit(TokenType.STRIP, '~', open_line, open_col + 2)
+                        self._emit(TokenType.STRIP, '~', open_line, open_col + len(d.open))
                     self._emit(TokenType.COMMENT, ''.join(comment_parts), open_line, open_col)
-                    self._advance(2)  # consume }}
+                    self._advance(len(d.close))  # consume close
                     return
                 comment_parts.append(self._advance())
             raise HandlebarsParseError('Unclosed comment', line=open_line, column=open_col)
         else:
             while self._pos < len(self._source):
-                if self._starts_with('~}}'):
+                if self._starts_with(d.strip_close):
                     if open_strip:
-                        self._emit(TokenType.STRIP, '~', open_line, open_col + 2)
+                        self._emit(TokenType.STRIP, '~', open_line, open_col + len(d.open))
                     self._emit(TokenType.COMMENT, ''.join(comment_parts), open_line, open_col)
                     strip_l, strip_c = self._line, self._column
                     self._advance(1)  # consume ~
                     self._emit(TokenType.STRIP, '~', strip_l, strip_c)
-                    self._advance(2)  # consume }}
+                    self._advance(len(d.close))  # consume close
                     return
-                if self._starts_with('}}'):
+                if self._starts_with(d.close):
                     if open_strip:
-                        self._emit(TokenType.STRIP, '~', open_line, open_col + 2)
+                        self._emit(TokenType.STRIP, '~', open_line, open_col + len(d.open))
                     self._emit(TokenType.COMMENT, ''.join(comment_parts), open_line, open_col)
-                    self._advance(2)  # consume }}
+                    self._advance(len(d.close))  # consume close
                     return
                 comment_parts.append(self._advance())
             raise HandlebarsParseError('Unclosed comment', line=open_line, column=open_col)
 
     def _read_mustache_body(self, close_unescaped: bool = False) -> None:
         """Read the body of a mustache tag."""
+        d = self._delims
         while self._pos < len(self._source):
             self._skip_ws()
 
             if self._pos >= len(self._source):
                 break
 
-            # Check for strip before close: ~}}} or ~}}
+            # Check for strip before close: ~<triple-close> or ~<close>
             if self._peek() == '~':
-                if close_unescaped and self._starts_with('~}}}'):
+                if (
+                    close_unescaped
+                    and d.triple_strip_close is not None
+                    and d.triple_close is not None
+                    and self._starts_with(d.triple_strip_close)
+                ):
                     strip_l, strip_c = self._line, self._column
                     self._advance()  # ~
                     self._emit(TokenType.STRIP, '~', strip_l, strip_c)
                     close_l, close_c = self._line, self._column
-                    self._advance(3)  # }}}
-                    self._emit(TokenType.CLOSE_UNESCAPED, '}}}', close_l, close_c)
+                    self._advance(len(d.triple_close))
+                    self._emit(TokenType.CLOSE_UNESCAPED, d.triple_close, close_l, close_c)
                     return
-                if self._starts_with('~}}'):  # pragma: no branch
+                if self._starts_with(d.strip_close):  # pragma: no branch
                     strip_l, strip_c = self._line, self._column
                     self._advance()  # ~
                     self._emit(TokenType.STRIP, '~', strip_l, strip_c)
                     close_l, close_c = self._line, self._column
-                    self._advance(2)  # }}
-                    self._emit(TokenType.CLOSE, '}}', close_l, close_c)
+                    self._advance(len(d.close))
+                    self._emit(TokenType.CLOSE, d.close, close_l, close_c)
                     return
 
-            # Close unescaped: }}}
-            if close_unescaped and self._starts_with('}}}'):
+            # Close unescaped: triple-close
+            if close_unescaped and d.triple_close is not None and self._starts_with(d.triple_close):
                 close_l, close_c = self._line, self._column
-                self._advance(3)
-                self._emit(TokenType.CLOSE_UNESCAPED, '}}}', close_l, close_c)
+                self._advance(len(d.triple_close))
+                self._emit(TokenType.CLOSE_UNESCAPED, d.triple_close, close_l, close_c)
                 return
 
-            # Close: }}
-            if self._starts_with('}}'):
+            # Close
+            if self._starts_with(d.close):
                 close_l, close_c = self._line, self._column
-                self._advance(2)
-                self._emit(TokenType.CLOSE, '}}', close_l, close_c)
+                self._advance(len(d.close))
+                self._emit(TokenType.CLOSE, d.close, close_l, close_c)
                 return
 
             # Read an expression token; track position to detect no-progress loops
             saved_pos = self._pos
             self._read_expression_token()
             if self._pos == saved_pos:
-                # No progress — we're stuck on a character the tokenizer can't consume
-                # (e.g., a lone '}' that doesn't form '}}' or '}}}')
+                # No progress — stuck on a character that doesn't form a
+                # close delim or a valid expression token. Break out so the
+                # parser can report a structured error.
                 break
 
     def _skip_ws(self) -> None:
@@ -400,8 +559,12 @@ class _TemplateTokenizer:
             self._emit(TokenType.PARENT, '../', line, col)
             return
 
-        # Check for . as 'this' (standalone or followed by / or space or close)
-        if ch == '.' and self._peek(1) in ('', ' ', '}', '~', ')', '/', '\t', '\n', '\r'):
+        # Check for . as 'this' (standalone or followed by / or space or close).
+        # The close-delim's first char terminates the expression body the same
+        # way `}` does for the default `}}` delim, so it counts as a
+        # "close-like" sentinel here.
+        close_first = self._delims.close_first_char
+        if ch == '.' and self._peek(1) in ('', ' ', close_first, '~', ')', '/', '\t', '\n', '\r'):
             self._advance()
             self._emit(TokenType.ID, '.', line, col)
             if self._pos < len(self._source) and self._peek() == '/':
@@ -486,7 +649,10 @@ class _TemplateTokenizer:
 
         if not value:
             ch = self._peek()
-            if ch and ch not in ('}', '~', ' ', '\t', '\n', '\r', ')', '|', '='):
+            # The close-delim's first char (default: `}`) is a legitimate
+            # follower of an identifier — don't treat it as unexpected here.
+            close_first = self._delims.close_first_char
+            if ch and ch not in (close_first, '~', ' ', '\t', '\n', '\r', ')', '|', '='):
                 self._advance()
                 raise HandlebarsParseError(f'Unexpected character: {ch!r}', line=line, column=col)
             return  # pragma: no cover
@@ -519,13 +685,22 @@ class _TemplateTokenizer:
             self._emit(TokenType.ID, text, line, col)
 
     def _read_raw_block(self) -> None:
-        """Read a raw block: {{{{name}}}}...{{{{/name}}}}."""
+        """Read a raw block: `{{{{name}}}}...{{{{/name}}}}`.
+
+        Raw blocks are only available with the default delimiters; the
+        caller guards on `self._delims.raw_open is not None` before
+        dispatching here.
+        """
+        d = self._delims
+        # Caller-guaranteed; narrow for the rest of the function.
+        assert d.raw_open is not None
+        assert d.raw_close is not None
         open_line = self._line
         open_col = self._column
 
-        # Consume {{{{
-        self._advance(4)
-        self._emit(TokenType.OPEN_RAW_BLOCK, '{{{{', open_line, open_col)
+        # Consume the raw-open delimiter.
+        self._advance(len(d.raw_open))
+        self._emit(TokenType.OPEN_RAW_BLOCK, d.raw_open, open_line, open_col)
 
         # Read the helper name
         self._skip_ws()
@@ -542,20 +717,22 @@ class _TemplateTokenizer:
 
         self._skip_ws()
 
-        # Expect }}}}
-        if not self._starts_with('}}}}'):
+        # Expect raw-close
+        if not self._starts_with(d.raw_close):
             raise HandlebarsParseError(
-                'Expected }}}} to close raw block open tag', line=self._line, column=self._column
+                f'Expected {d.raw_close} to close raw block open tag',
+                line=self._line,
+                column=self._column,
             )
 
         close_l, close_c = self._line, self._column
-        self._advance(4)
-        self._emit(TokenType.CLOSE_RAW_BLOCK, '}}}}', close_l, close_c)
+        self._advance(len(d.raw_close))
+        self._emit(TokenType.CLOSE_RAW_BLOCK, d.raw_close, close_l, close_c)
 
-        # Read raw content until {{{{/name}}}}
+        # Read raw content until raw-open + '/' + name + raw-close.
         raw_l, raw_c = self._line, self._column
         raw_content: list[str] = []
-        end_tag = '{{{{/' + block_name + '}}}}'
+        end_tag = d.raw_open + '/' + block_name + d.raw_close
 
         while self._pos < len(self._source):
             if self._starts_with(end_tag):
@@ -568,7 +745,6 @@ class _TemplateTokenizer:
         if raw_content:
             self._emit(TokenType.RAW_CONTENT, ''.join(raw_content), raw_l, raw_c)
 
-        # Consume {{{{/name}}}}
         end_l, end_c = self._line, self._column
         self._advance(len(end_tag))
         self._emit(TokenType.END_RAW_BLOCK, block_name, end_l, end_c)

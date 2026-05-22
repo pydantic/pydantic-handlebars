@@ -33,7 +33,7 @@ MAX_DEPTH = 100
 MAX_OUTPUT_SIZE = 10 * 1024 * 1024
 
 # Sentinel returned by `_get_property` when the requested key/index does not
-# exist on the underlying container. Distinct from an explicit ``None`` value,
+# exist on the underlying container. Distinct from an explicit `None` value,
 # which is allowed even in strict mode.
 _MISSING: Any = object()
 
@@ -89,12 +89,12 @@ class HelperFunc(Protocol):
     """Protocol for helper functions.
 
     All helpers receive positional args (resolved from template expressions against the user's
-    context) and an ``options`` keyword providing block rendering capabilities and hash arguments.
+    context) and an `options` keyword providing block rendering capabilities and hash arguments.
 
-    Using ``object`` rather than ``Any`` for positional args prevents helpers from falsely claiming
+    Using `object` rather than `Any` for positional args prevents helpers from falsely claiming
     args are pre-validated as specific types — the type checker will reject e.g.
-    ``def my_helper(val: float, ...)`` since args could be anything from the user's context.
-    Helpers that want to opt out can use ``Any`` explicitly.
+    `def my_helper(val: float, ...)` since args could be anything from the user's context.
+    Helpers that want to opt out can use `Any` explicitly.
     """
 
     def __call__(self, /, *args: object, options: HelperOptions) -> Any: ...  # pragma: no cover
@@ -145,10 +145,10 @@ class Scope:
         return None
 
     def lookup_data_strict(self, name: str) -> tuple[Any, bool]:
-        """Look up a @data variable, returning ``(value, found)``.
+        """Look up a @data variable, returning `(value, found)`.
 
-        The ``found`` flag lets strict-mode callers distinguish a missing key
-        from one whose explicit value is ``None``.
+        The `found` flag lets strict-mode callers distinguish a missing key
+        from one whose explicit value is `None`.
         """
         if name in self.data:
             return self.data[name], True
@@ -570,10 +570,10 @@ class Compiler:
 
 
 def _get_property(obj: Any, name: str) -> Any:
-    """Safely get a property from an object, returning ``_MISSING`` if absent.
+    """Safely get a property from an object, returning `_MISSING` if absent.
 
     The sentinel distinguishes "no such key/index" from "key present, value is
-    ``None``". Non-strict callers should treat the sentinel as ``None``; strict
+    `None`". Non-strict callers should treat the sentinel as `None`; strict
     callers should raise.
     """
     if obj is None or obj is _MISSING:

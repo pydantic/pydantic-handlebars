@@ -60,6 +60,8 @@ class HandlebarsEnvironment:
         max_depth: int = MAX_DEPTH,
         max_output_size: int = MAX_OUTPUT_SIZE,
         strict: bool = False,
+        open_delim: str = '{{',
+        close_delim: str = '}}',
     ) -> None:
         self._helpers: dict[str, HelperFunc] = get_standard_helpers()
         if extra_helpers:
@@ -68,26 +70,48 @@ class HandlebarsEnvironment:
         self._max_depth = max_depth
         self._max_output_size = max_output_size
         self._strict = strict
+        self._open_delim = open_delim
+        self._close_delim = close_delim
+
+    @property
+    def open_delim(self) -> str:
+        """The open mustache delimiter this environment compiles templates with.
+
+        Defaults to `{{`. Templates compiled or rendered through this
+        environment look for this string to mark the start of an expression.
+        """
+        return self._open_delim
+
+    @property
+    def close_delim(self) -> str:
+        """The close mustache delimiter this environment compiles templates with.
+
+        Defaults to `}}`. Non-default delimiter pairs disable the
+        triple-stache (`{{{...}}}`) and raw-block (`{{{{...}}}}`)
+        variants since those forms only have unambiguous extensions for the
+        default pair.
+        """
+        return self._close_delim
 
     @property
     def strict(self) -> bool:
         """Whether strict mode is enabled for templates rendered by this environment.
 
-        When ``True``, referencing a path that does not exist on the context
+        When `True`, referencing a path that does not exist on the context
         raises :class:`HandlebarsRuntimeError` instead of silently rendering
-        as an empty string. An explicit ``None`` value in the context is still
+        as an empty string. An explicit `None` value in the context is still
         allowed — strict mode only fires for genuinely missing keys.
         """
         return self._strict
 
     @property
     def auto_escape(self) -> bool:
-        """Whether HTML auto-escaping is enabled for ``{{expression}}`` output.
+        """Whether HTML auto-escaping is enabled for `{{expression}}` output.
 
-        When ``False`` (the default), no escaping is applied — appropriate for
-        non-HTML use cases like prompt generation.  When ``True``,
+        When `False` (the default), no escaping is applied — appropriate for
+        non-HTML use cases like prompt generation.  When `True`,
         double-stache expressions are HTML-escaped.  Triple-stache
-        ``{{{expression}}}`` is always unescaped regardless of this setting.
+        `{{{expression}}}` is always unescaped regardless of this setting.
         """
         return self._auto_escape
 
@@ -155,7 +179,7 @@ class HandlebarsEnvironment:
 
     def _compile_fn(self, source: str) -> Callable[..., str]:
         """Compile to a raw callable (internal use)."""
-        program = parse(source)
+        program = parse(source, open_delim=self._open_delim, close_delim=self._close_delim)
         helpers = dict(self._helpers)
         auto_escape = self._auto_escape
         max_depth = self._max_depth
@@ -182,7 +206,7 @@ class HandlebarsEnvironment:
             source: The Handlebars template string.
 
         Returns:
-            A ``CompiledTemplate`` that takes a context dict and returns a rendered string.
+            A `CompiledTemplate` that takes a context dict and returns a rendered string.
         """
         return CompiledTemplate(self._compile_fn(source))
 
