@@ -202,8 +202,6 @@ def test_multiple_escaped_mustaches_in_one_template():
 
 def test_escape_with_custom_delimiters():
     """Backslash escape rule applies to whatever open delimiter is configured."""
-    from pydantic_handlebars import HandlebarsEnvironment
-
     env = HandlebarsEnvironment(open_delim='@{', close_delim='}@')
     # Single backslash escapes the open delimiter.
     assert env.render('\\@{x}@', {'x': 'V'}) == '@{x}@'
