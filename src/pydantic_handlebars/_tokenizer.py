@@ -108,8 +108,6 @@ class _Delimiters:
     open_unescape_amp: str
     """Open + `&` — the legacy unescaped variant (`{{&foo}}`)."""
     open_comment: str
-    escape: str
-    r"""`\` + open — the escape sequence that produces literal delimiters."""
     strip_open: str
     """Open + `~` — open-strip whitespace control."""
     strip_close: str
@@ -182,7 +180,6 @@ def _make_delimiters(open_delim: str, close_delim: str) -> _Delimiters:
         open_partial=open_delim + '>',
         open_unescape_amp=open_delim + '&',
         open_comment=open_delim + '!',
-        escape='\\' + open_delim,
         strip_open=open_delim + '~',
         strip_close='~' + close_delim,
         close_long_comment='--' + close_delim,
@@ -266,24 +263,6 @@ class _TemplateTokenizer:
     def _read_next(self) -> None:
         """Read the next token(s) from the source."""
         d = self._delims
-        # Check for escaped mustache: `\<open>` produces literal open text.
-        if self._starts_with(d.escape):
-            line, col = self._line, self._column
-            self._advance(1)  # skip backslash
-            content = self._advance(len(d.open))
-            # Continue reading content
-            more: list[str] = []
-            while self._pos < len(self._source):
-                if self._starts_with(d.escape):
-                    self._advance(1)
-                    more.append(self._advance(len(d.open)))
-                    continue
-                if self._starts_with(d.open):
-                    break
-                more.append(self._advance())
-            self._emit(TokenType.CONTENT, content + ''.join(more), line, col)
-            return
-
         # Check for raw block (only with default delims): {{{{
         if (
             d.raw_open is not None
@@ -294,12 +273,13 @@ class _TemplateTokenizer:
             self._read_raw_block()
             return
 
-        # Check for mustache open
+        # Check for mustache open. Escape handling (`\<open>` → literal open)
+        # lives inside `_read_content` so it can count consecutive
+        # backslashes — see `_consume_backslash_run` for the parity rule.
         if self._starts_with(d.open):
             self._read_mustache()
             return
 
-        # Read content
         self._read_content()
 
     def _read_content(self) -> None:
@@ -309,9 +289,12 @@ class _TemplateTokenizer:
         content: list[str] = []
 
         while self._pos < len(self._source):
-            if self._starts_with(d.escape):
-                self._advance(1)
-                content.append(self._advance(len(d.open)))
+            if self._source[self._pos] == '\\':
+                if not self._consume_backslash_run(content):
+                    # Even-length backslash run preceding the open delimiter:
+                    # contributes literal backslashes (already appended) and
+                    # then yields control so the mustache parser takes over.
+                    break
                 continue
             if self._starts_with(d.open):
                 break
@@ -319,6 +302,44 @@ class _TemplateTokenizer:
 
         if content:  # pragma: no branch
             self._emit(TokenType.CONTENT, ''.join(content), line, col)
+
+    def _consume_backslash_run(self, content: list[str]) -> bool:
+        r"""Consume a run of backslashes and, if followed by an open delimiter, apply the escape rule.
+
+        Handlebars.js semantics, which `pydantic-handlebars` follows: a run of
+        N backslashes immediately before an open delimiter contributes
+        `N // 2` literal backslashes to the output; the open delimiter is
+        then treated as literal content if N is odd (`\{{x}}` → literal
+        `{{x}}`) or as the start of a real mustache expression if N is
+        even (`\\{{x}}` → `\` + rendered X).
+
+        Returns `True` when the caller should keep reading content, and
+        `False` when the run ended on an even-length boundary that yields
+        to the mustache parser.
+        """
+        d = self._delims
+        run_start = self._pos
+        while self._pos < len(self._source) and self._source[self._pos] == '\\':
+            self._advance(1)
+        run_len = self._pos - run_start
+
+        if not self._starts_with(d.open):
+            # Backslashes that aren't followed by an open delimiter are plain
+            # content — emit them verbatim and let the loop continue.
+            content.append('\\' * run_len)
+            return True
+
+        literal_count = run_len // 2
+        if literal_count:
+            content.append('\\' * literal_count)
+        if run_len % 2 == 1:
+            # Odd → the last backslash escapes the open delimiter; consume
+            # the open delimiter as literal content and keep reading.
+            content.append(self._advance(len(d.open)))
+            return True
+        # Even → all backslashes were literal pairs; yield to the mustache
+        # parser to consume the open delimiter as a real expression start.
+        return False
 
     def _read_mustache(self) -> None:
         """Read a mustache tag (open ... close)."""

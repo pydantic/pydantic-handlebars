@@ -152,6 +152,65 @@ def test_escaped_mustache_with_content():
     assert render('content \\{{foo}}', {'foo': 'bar'}) == 'content {{foo}}'
 
 
+# Handlebars.js semantics for runs of backslashes preceding `{{`:
+# a run of N backslashes contributes `N // 2` literal backslashes, and
+# whether the `{{...}}` then renders depends on parity — odd means the
+# last backslash escaped the mustache (literal `{{...}}` in output),
+# even means the mustache renders normally.
+
+
+def test_backslash_run_one_escapes():
+    """1 backslash → escape the mustache (the canonical existing case)."""
+    assert render('\\{{x}}', {'x': 'V'}) == '{{x}}'
+
+
+def test_backslash_run_two_renders_with_literal():
+    """2 backslashes → one literal backslash followed by rendered value."""
+    assert render('\\\\{{x}}', {'x': 'V'}) == '\\V'
+
+
+def test_backslash_run_three_renders_literal_and_escapes():
+    """3 backslashes → one literal backslash followed by escaped mustache."""
+    assert render('\\\\\\{{x}}', {'x': 'V'}) == '\\{{x}}'
+
+
+def test_backslash_run_four_renders_two_literals():
+    """4 backslashes → two literal backslashes followed by rendered value."""
+    assert render('\\\\\\\\{{x}}', {'x': 'V'}) == '\\\\V'
+
+
+def test_backslash_not_before_mustache_is_literal():
+    """A backslash that isn't part of an `\\{{` sequence is plain content."""
+    assert render('back\\slash {{x}}', {'x': 'V'}) == 'back\\slash V'
+
+
+def test_escape_at_start_of_template():
+    """An escaped mustache at position 0 of the source still emits the literal."""
+    assert render('\\{{x}}', {'x': 'V'}) == '{{x}}'
+
+
+def test_backslash_run_two_at_start_of_template():
+    """Two backslashes at position 0 still produce one literal `\\` + rendered value."""
+    assert render('\\\\{{x}}', {'x': 'V'}) == '\\V'
+
+
+def test_multiple_escaped_mustaches_in_one_template():
+    """Multiple escape sequences in one template each follow the parity rule independently."""
+    result = render('\\{{a}} and \\\\{{b}}', {'a': 'A', 'b': 'B'})
+    assert result == '{{a}} and \\B'
+
+
+def test_escape_with_custom_delimiters():
+    """Backslash escape rule applies to whatever open delimiter is configured."""
+    from pydantic_handlebars import HandlebarsEnvironment
+
+    env = HandlebarsEnvironment(open_delim='@{', close_delim='}@')
+    # Single backslash escapes the open delimiter.
+    assert env.render('\\@{x}@', {'x': 'V'}) == '@{x}@'
+    # Two backslashes → one literal + rendered value.
+    assert env.render('\\\\@{x}@', {'x': 'V'}) == '\\V'
+
+
 # --- Rendering values ---
 
 
