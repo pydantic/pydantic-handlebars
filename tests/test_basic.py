@@ -1,6 +1,9 @@
 """Basic tests for Handlebars template rendering.
 
-Ported from handlebars.js spec/basic.js.
+Ported from handlebars.js spec/basic.js
+(https://github.com/handlebars-lang/handlebars.js).
+
+Copyright 2011-2019 Yehuda Katz. Licensed under the MIT License.
 """
 
 # pyright: reportUnknownLambdaType=false, reportUnknownArgumentType=false

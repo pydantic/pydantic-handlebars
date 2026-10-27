@@ -1,6 +1,9 @@
 """Tests for block helpers and inverted sections.
 
-Ported from handlebars.js spec/blocks.js.
+Ported from handlebars.js spec/blocks.js
+(https://github.com/handlebars-lang/handlebars.js).
+
+Copyright 2011-2019 Yehuda Katz. Licensed under the MIT License.
 """
 
 # pyright: reportUnknownVariableType=false

@@ -1,6 +1,9 @@
 """Tests for whitespace control.
 
-Ported from handlebars.js spec/whitespace-control.js.
+Ported from handlebars.js spec/whitespace-control.js
+(https://github.com/handlebars-lang/handlebars.js).
+
+Copyright 2011-2019 Yehuda Katz. Licensed under the MIT License.
 """
 
 from pydantic_handlebars import render

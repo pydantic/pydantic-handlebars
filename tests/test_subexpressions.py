@@ -1,6 +1,9 @@
 """Tests for subexpressions.
 
-Ported from handlebars.js spec/subexpressions.js.
+Ported from handlebars.js spec/subexpressions.js
+(https://github.com/handlebars-lang/handlebars.js).
+
+Copyright 2011-2019 Yehuda Katz. Licensed under the MIT License.
 """
 
 # pyright: reportUnknownLambdaType=false, reportUnknownArgumentType=false, reportArgumentType=false

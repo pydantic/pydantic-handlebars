@@ -1,6 +1,9 @@
 """Tests for helper calling conventions.
 
-Ported from handlebars.js spec/helpers.js.
+Ported from handlebars.js spec/helpers.js
+(https://github.com/handlebars-lang/handlebars.js).
+
+Copyright 2011-2019 Yehuda Katz. Licensed under the MIT License.
 """
 
 # pyright: reportUnknownLambdaType=false, reportUnknownArgumentType=false, reportUnusedFunction=false, reportUnknownVariableType=false

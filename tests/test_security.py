@@ -1,6 +1,9 @@
 """Tests for security features.
 
-Ported from handlebars.js spec/security.js, adapted for Python.
+Ported from handlebars.js spec/security.js, adapted for Python
+(https://github.com/handlebars-lang/handlebars.js).
+
+Copyright 2011-2019 Yehuda Katz. Licensed under the MIT License.
 """
 
 from datetime import datetime

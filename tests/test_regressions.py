@@ -1,6 +1,9 @@
 """Regression tests.
 
-Ported from handlebars.js spec/regressions.js (relevant parts).
+Ported from handlebars.js spec/regressions.js (relevant parts)
+(https://github.com/handlebars-lang/handlebars.js).
+
+Copyright 2011-2019 Yehuda Katz. Licensed under the MIT License.
 """
 
 # pyright: reportUnknownLambdaType=false, reportUnknownArgumentType=false

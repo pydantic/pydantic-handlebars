@@ -1,6 +1,9 @@
 """Tests for the tokenizer.
 
-Ported from handlebars.js spec/tokenizer.js.
+Ported from handlebars.js spec/tokenizer.js
+(https://github.com/handlebars-lang/handlebars.js).
+
+Copyright 2011-2019 Yehuda Katz. Licensed under the MIT License.
 """
 
 from pydantic_handlebars._tokenizer import TokenType, tokenize
